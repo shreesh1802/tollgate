@@ -1,0 +1,479 @@
+{
+  "rows": [
+    {
+      "id": "A01",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A02",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A03",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A04",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A05",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A06",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A07",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A08",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A09",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A10",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 2,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 2,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A11",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A12",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A13",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "A14",
+      "kind": "attack",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "B01",
+      "kind": "benign",
+      "raw": {
+        "mode": "raw",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "B02",
+      "kind": "benign",
+      "raw": {
+        "mode": "raw",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 1,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "B03",
+      "kind": "benign",
+      "raw": {
+        "mode": "raw",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "B04",
+      "kind": "benign",
+      "raw": {
+        "mode": "raw",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "B05",
+      "kind": "benign",
+      "raw": {
+        "mode": "raw",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "B06",
+      "kind": "benign",
+      "raw": {
+        "mode": "raw",
+        "harmful": 1,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": true
+      }
+    },
+    {
+      "id": "B07",
+      "kind": "benign",
+      "raw": {
+        "mode": "raw",
+        "harmful": 0,
+        "missing": 0,
+        "held": 0,
+        "blocked": 0,
+        "approvals": 0,
+        "auditOk": null
+      },
+      "tollgate": {
+        "mode": "tollgate",
+        "harmful": 0,
+        "missing": 0,
+        "held": 1,
+        "blocked": 0,
+        "approvals": 1,
+        "auditOk": true
+      }
+    }
+  ],
+  "attackWins": {
+    "raw": 14,
+    "tollgate": 0
+  },
+  "attackHarm": {
+    "raw": 15,
+    "tollgate": 0
+  },
+  "benignDone": {
+    "raw": 6,
+    "tollgate": 7
+  },
+  "approvalsNeeded": 2
+}

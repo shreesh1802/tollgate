@@ -1,0 +1,18 @@
+{
+  "name": "tollgate",
+  "version": "0.1.0",
+  "description": "A taint-tracking firewall between AI agents and PayPal money-moving tools.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "judge-check": "node harness/run.js",
+    "test": "node --test \"test/*.test.js\"",
+    "eval:claude": "node harness/eval-claude.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0"
+  }
+}
