@@ -11,7 +11,11 @@ const TRUSTED_PATHS = {
   list_disputes: [/^disputes\.\d+\.(dispute_id|order_id|reason|status)$/],
   create_invoice: [/^invoice_id$/, /^recipient_email$/, /^status$/],
   create_refund: [/^refund_id$/, /^status$/, /^capture_id$/, /^amount$/, /^currency$/],
+  capture_authorization: [/^capture_id$/, /^authorization_id$/, /^status$/, /^amount$/, /^currency$/],
+  payout_worker: [/^batch_id$/, /^status$/, /^payee$/, /^amount$/, /^currency$/],
 };
+
+const cents = (v) => Math.round(Number(v) * 100);
 
 /** What Tollgate has observed this session, split by provenance. */
 export class Ledger {
@@ -23,6 +27,28 @@ export class Ledger {
     this.refunded = new Map(); // capture id -> total refunded this session
     this.refundedTotal = 0;
     this.tainted = false; // true once the agent has been shown any untrusted text
+    // Escrow state (ProofPay): reservations we may capture from, and who may be paid.
+    this.authorizations = new Map(); // authorization id -> { cents, currency }
+    this.capturedByAuth = new Map(); // authorization id -> cents captured so far
+    this.paidCents = 0; // cents already paid out to the worker
+  }
+
+  /** Register a donor reservation from our own trusted records. */
+  trustAuthorization(id, amount, currency, capturedSoFar = 0) {
+    this.authorizations.set(id, { cents: cents(amount), currency });
+    this.capturedByAuth.set(id, cents(capturedSoFar));
+    this.trusted.set(String(id).toLowerCase(), `project:authorization:${id}`);
+  }
+
+  /** The one payee recorded on the project by the organiser. */
+  trustPayee(email) {
+    this.trusted.set(String(email).trim().toLowerCase(), 'project:worker.email');
+  }
+
+  get capturedCents() {
+    let sum = 0;
+    for (const c of this.capturedByAuth.values()) sum += c;
+    return sum;
   }
 
   ingest(tool, result) {

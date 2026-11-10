@@ -11,12 +11,12 @@ import { canonical, sha256 } from './util.js';
  *   await gate.call('create_refund', {...})  // -> { decision: 'ALLOW'|'HOLD'|'BLOCK', ... }
  */
 export class Tollgate {
-  constructor({ backend, mandate = DEFAULT_MANDATE, intent = [], clock } = {}) {
+  constructor({ backend, mandate = DEFAULT_MANDATE, intent = [], clock, audit = null, ledger = null } = {}) {
     this.backend = backend;
     this.mandate = mandate;
     this.intent = intent;
-    this.ledger = new Ledger();
-    this.audit = new AuditLog(clock);
+    this.ledger = ledger ?? new Ledger();
+    this.audit = audit ?? new AuditLog(clock);
     this.pending = new Map();
     this.nextApproval = 1;
   }
@@ -97,6 +97,13 @@ export class Tollgate {
     }
     if (tool === 'create_invoice') {
       this.ledger.invoices.set(result.invoice_id, { recipient: args.recipient_email, amount: args.amount });
+    }
+    if (tool === 'capture_authorization') {
+      const id = args.authorization_id;
+      this.ledger.capturedByAuth.set(id, (this.ledger.capturedByAuth.get(id) ?? 0) + Math.round(Number(args.amount) * 100));
+    }
+    if (tool === 'payout_worker') {
+      this.ledger.paidCents += Math.round(Number(args.amount) * 100);
     }
   }
 }

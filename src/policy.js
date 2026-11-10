@@ -7,6 +7,8 @@ export const MONEY_TOOLS = new Set([
   'create_invoice',
   'send_invoice',
   'pay_order',
+  'capture_authorization',
+  'payout_worker',
 ]);
 /** Cannot be undone, so they always need explicit merchant intent or a human. */
 const IRREVERSIBLE = new Set(['accept_dispute_claim']);
@@ -32,6 +34,7 @@ function ungrounded(ledger, field, value) {
 }
 
 const isAmount = (a) => /^\d+(\.\d{1,2})?$/.test(String(a)) && Number(a) > 0;
+const cents = (v) => Math.round(Number(v) * 100);
 
 /**
  * Per-tool argument checks. Each returns a verdict if it fails, otherwise null.
@@ -83,6 +86,29 @@ const CHECKS = {
     }
     if (!isAmount(args.amount) || Number(args.amount) > mandate.pay.max) {
       return block('exceeds-pay-max', `payment ${args.amount} exceeds mandate max ${mandate.pay.max}`);
+    }
+    return null;
+  },
+
+  // Escrow: never take more from a donor than they reserved, never pay out more than was captured.
+  capture_authorization(args, { ledger }) {
+    const auth = ledger.authorizations.get(args.authorization_id);
+    if (!auth) return ungrounded(ledger, 'authorization_id', args.authorization_id);
+    if (!isAmount(args.amount)) return block('bad-amount', `invalid amount ${args.amount}`);
+    if (args.currency !== auth.currency) return block('currency-mismatch', `${args.currency} != ${auth.currency}`);
+    const already = ledger.capturedByAuth.get(args.authorization_id) ?? 0;
+    if (already + cents(args.amount) > auth.cents) {
+      return block('exceeds-authorization', `capture ${args.amount} + ${(already / 100).toFixed(2)} already captured > reserved ${(auth.cents / 100).toFixed(2)}`);
+    }
+    return null;
+  },
+
+  payout_worker(args, { ledger }) {
+    if (!ledger.isGrounded(args.payee)) return ungrounded(ledger, 'payee', args.payee);
+    if (!isAmount(args.amount)) return block('bad-amount', `invalid amount ${args.amount}`);
+    const unpaid = ledger.capturedCents - ledger.paidCents;
+    if (cents(args.amount) > unpaid) {
+      return block('exceeds-captured', `payout ${args.amount} > captured-but-unpaid ${(unpaid / 100).toFixed(2)}`);
     }
     return null;
   },
