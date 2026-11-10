@@ -104,6 +104,12 @@ export class SandboxEscrowPayPal {
     return { authorizationId: auth.id, status: auth.status, amount: auth.amount.value, currency: auth.amount.currency_code, expiresAt: auth.expiration_time ?? null };
   }
 
+  /** Payouts settle asynchronously (PENDING, then SUCCESS or another final state). */
+  async getPayout(batchId) {
+    const b = await this.#req('GET', `/v1/payments/payouts/${encodeURIComponent(batchId)}`, null, null);
+    return { batchId: b.batch_header?.payout_batch_id, status: b.batch_header?.batch_status, items: (b.items ?? []).map((i) => ({ status: i.transaction_status, amount: i.payout_item?.amount?.value, receiver: i.payout_item?.receiver })) };
+  }
+
   async getAuthorization(authorizationId) {
     const a = await this.#req('GET', `/v2/payments/authorizations/${encodeURIComponent(authorizationId)}`, null, null);
     return { authorizationId: a.id, status: a.status, amount: a.amount?.value, currency: a.amount?.currency_code, expiresAt: a.expiration_time ?? null };

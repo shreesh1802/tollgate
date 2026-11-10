@@ -101,3 +101,8 @@ test('unknown tools are refused', async () => {
   const { pp } = make({});
   await assert.rejects(pp.call('delete_everything', {}), /UNKNOWN_TOOL/);
 });
+
+test('payout status lookup reports the batch and each item', async () => {
+  const { pp } = make({ 'GET /v1/payments/payouts/B-9': { body: { batch_header: { payout_batch_id: 'B-9', batch_status: 'SUCCESS' }, items: [{ transaction_status: 'SUCCESS', payout_item: { amount: { value: '3.00' }, receiver: 'w@example.com' } }] } } });
+  assert.deepEqual(await pp.getPayout('B-9'), { batchId: 'B-9', status: 'SUCCESS', items: [{ status: 'SUCCESS', amount: '3.00', receiver: 'w@example.com' }] });
+});
