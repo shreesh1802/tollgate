@@ -55,8 +55,18 @@ export async function processSubmission({ project, stageId, submission, deps }) 
 }
 
 async function finish(project, stage, sub, verdict, deps, audit, by) {
-  const out = await releaseStage({ project, stage, paypal: deps.paypal, clock: deps.clock });
+  let out;
+  try {
+    out = await releaseStage({ project, stage, paypal: deps.paypal, clock: deps.clock });
+  } catch (err) {
+    // A payment-provider failure must not lose the verified evidence: keep it, retryable.
+    out = { ok: false, step: 'release', decision: 'ERROR', reason: String(err.message).slice(0, 200), captures: [] };
+  }
   sub.status = out.ok ? 'RELEASED' : 'RELEASE_FAILED';
+  if (!out.ok) {
+    sub.releaseError = out.reason;
+    sub.evidenceHash = evidenceHash(stage, sub); // lets a verifier retry the release for this exact evidence
+  }
   audit.append({ event: 'release', submission: sub.id, stage: stage.id, by, ok: out.ok, ...(out.ok ? { payout: out.payout } : { step: out.step, reason: out.reason }) });
   return { decision: verdict.decision, submissionId: sub.id, reasons: verdict.reasons, checks: verdict.checks, reviews: sub.reviews, status: sub.status, release: out };
 }
@@ -67,7 +77,7 @@ export async function humanDecision({ project, submissionId, decision, by = 'ver
   const audit = auditFor(project, clock);
   const stage = project.stages.find((s) => s.submissions.some((x) => x.id === submissionId));
   const sub = stage?.submissions.find((x) => x.id === submissionId);
-  if (!sub || sub.status !== 'PENDING_REVIEW') throw new Error('submission is not awaiting review');
+  if (!sub || !['PENDING_REVIEW', 'RELEASE_FAILED'].includes(sub.status)) throw new Error('submission is not awaiting review');
 
   if (decision === 'reject') {
     sub.status = 'REJECTED';

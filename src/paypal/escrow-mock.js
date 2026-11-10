@@ -19,6 +19,17 @@ export class MockEscrowPayPal {
     this.n = { capture: 0, payout: 0 };
   }
 
+  /** Rebuild reservations from saved projects after a restart (real PayPal remembers these itself). */
+  restoreFrom(projects) {
+    for (const p of projects) {
+      for (const d of p.donations.filter((x) => x.authorizationId)) {
+        this.auths.set(d.authorizationId, { cents: toCents(d.amount), captured: d.capturedCents, currency: p.currency });
+        this.capturedCents += d.capturedCents;
+      }
+      this.paidCents += p.paidCents;
+    }
+  }
+
   /** Stands in for "donor approved and we authorised the order". */
   reserve(id, amount, currency = 'USD') {
     this.auths.set(id, { cents: toCents(amount), captured: 0, currency });

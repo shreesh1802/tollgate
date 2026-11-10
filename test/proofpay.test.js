@@ -231,3 +231,37 @@ test('an unrelated photo is a mismatch the worker can retry, not a fraud flag fo
   const s = { x: review({ visibleCode: 'AAAA', matchesSpec: false, confidence: 0.95, suspicion: ['screen_photo'] }) };
   assert.equal((await submit(setup(), 'S1', 'x', facts(H[0]), reviewers(s))).decision, 'HOLD');
 });
+
+test('a payment-provider failure keeps the verified evidence, and a retry then completes the release', async () => {
+  const ctx = setup();
+  ctx.paypal.auths.delete('AUTH-B'); // the provider cannot find the second reservation
+  const rs = reviewers({ x: review({ visibleCode: 'AAAA' }) });
+  const r = await submit(ctx, 'S1', 'x', facts(H[0]), rs);
+  assert.equal(r.decision, 'RELEASE');
+  assert.equal(r.status, 'RELEASE_FAILED'); // no exception escaped
+  const sub = ctx.project.stages[0].submissions[0];
+  assert.match(sub.releaseError, /RESOURCE_NOT_FOUND/);
+  assert.equal(ctx.project.stages[0].status, 'ACTIVE');
+  assert.equal(sum(ctx.paypal.effects, 'payout'), 0);
+
+  ctx.paypal.reserve('AUTH-B', '40.00'); // provider recovers
+  const out = await humanDecision({ project: ctx.project, submissionId: sub.id, decision: 'approve', evidenceHash: sub.evidenceHash, deps: deps(ctx.paypal, rs) });
+  assert.equal(out.status, 'RELEASED');
+  // Donor A was captured on the first attempt and must not be captured again.
+  assert.equal(ctx.paypal.effects.filter((e) => e.type === 'capture' && e.authorization_id === 'AUTH-A').length, 1);
+  assert.equal(sum(ctx.paypal.effects, 'payout'), 3000);
+  assert.equal(auditFor(ctx.project).verify().ok, true);
+});
+
+test('the mock rebuilds its reservations from saved projects after a restart', async () => {
+  const ctx = setup();
+  const rs = reviewers({ x: review({ visibleCode: 'AAAA' }) });
+  await submit(ctx, 'S1', 'x', facts(H[0]), rs);
+  const fresh = new MockEscrowPayPal(); // a restarted server
+  fresh.restoreFrom([JSON.parse(JSON.stringify(ctx.project))]);
+  assert.equal(fresh.capturedCents, 3000);
+  assert.equal(fresh.paidCents, 3000);
+  // It will refuse to take more than the reservation, and accept the exact remainder.
+  await assert.rejects(fresh.call('capture_authorization', { authorization_id: 'AUTH-A', amount: '60.00', stage_id: 'S2' }), /EXCEEDS/);
+  await fresh.call('capture_authorization', { authorization_id: 'AUTH-A', amount: '42.00', stage_id: 'S2' });
+});

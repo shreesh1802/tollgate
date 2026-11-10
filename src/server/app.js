@@ -262,10 +262,10 @@ export function createApp({
 
   route('GET', '/api/verify/queue', async ({ req }) => {
     requireVerifier(req);
-    const items = store.list().flatMap((p) => p.stages.flatMap((s) => s.submissions.filter((x) => x.status === 'PENDING_REVIEW').map((x) => ({
+    const items = store.list().flatMap((p) => p.stages.flatMap((s) => s.submissions.filter((x) => ['PENDING_REVIEW', 'RELEASE_FAILED'].includes(x.status)).map((x) => ({
       projectId: p.id, projectTitle: p.title,
       stage: { id: s.id, title: s.title, spec: s.spec },
-      submission: { id: x.id, receivedAt: x.receivedAt, facts: x.facts, reviews: x.reviews, reasons: x.verdict?.reasons, checks: x.verdict?.checks },
+      submission: { id: x.id, status: x.status, releaseError: x.releaseError, receivedAt: x.receivedAt, facts: x.facts, reviews: x.reviews, reasons: x.verdict?.reasons, checks: x.verdict?.checks },
       evidenceHash: x.evidenceHash,
       imageUrl: `/api/images/${p.id}/${x.id}`,
     }))));
@@ -282,7 +282,9 @@ export function createApp({
         const out = await humanDecision({ project, submissionId: params.submissionId, decision: b.decision, evidenceHash: b.evidenceHash, by: 'verifier', deps });
         return json({ status: out.status, release: out.release ? { ok: out.release.ok, payout: out.release.payout, captures: out.release.captures } : undefined });
       } catch (e) {
-        throw new HttpError(409, e.message);
+        const known = /bound to the original evidence|not awaiting review|^stage is /.test(e.message);
+        if (!known) console.error('verifier action failed:', e);
+        throw new HttpError(known ? 409 : 502, known ? e.message : 'The payment provider returned an error. Nothing was released.');
       } finally {
         store.put(project);
       }
@@ -295,7 +297,7 @@ export function createApp({
     const file = path.resolve(staticDir, `.${rel}`);
     if (!file.startsWith(path.resolve(staticDir) + path.sep) || !existsSync(file)) throw new HttpError(404, 'not found');
     const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
-    const headers = type.startsWith('text/html') ? { 'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" } : {};
+    const headers = type.startsWith('text/html') ? { 'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" } : {};
     return { status: 200, raw: await readFile(file), type, headers };
   }
 

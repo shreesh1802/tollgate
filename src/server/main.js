@@ -30,6 +30,7 @@ if (reviewMode === 'claude' && !env.ANTHROPIC_API_KEY) throw new Error('REVIEWER
 const paypal = mode === 'sandbox' ? new SandboxEscrowPayPal() : new MockEscrowPayPal();
 const reviewers = reviewMode === 'claude' ? defaultReviewers() : [makeDemoReviewer('a'), makeDemoReviewer('b')];
 const store = new Store(path.join(dataDir, 'projects.json'));
+if (mode === 'mock') paypal.restoreFrom(store.list()); // the mock has no memory of its own
 
 const wantSeed = env.SEED === '1' || process.argv.includes('--seed');
 if (wantSeed && mode === 'mock' && store.list().length === 0) {

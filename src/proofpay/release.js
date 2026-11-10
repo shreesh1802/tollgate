@@ -31,7 +31,9 @@ export async function releaseStage({ project, stage, paypal, clock = () => Date.
   const total = authCents.reduce((a, b) => a + b, 0);
   const targets = splitCents(Math.round((total * cumPct) / 100), authCents);
   const slices = donations.map((d, i) => Math.max(0, targets[i] - d.capturedCents));
-  const stageCents = slices.reduce((a, b) => a + b, 0);
+  // Everything the worker is owed up to and including this stage, minus what was already paid.
+  // On a retry some of it was captured by an earlier attempt, so this is not just this attempt's slices.
+  const owedCents = targets.reduce((a, b) => a + b, 0) - project.paidCents;
 
   // Tollgate sees only trusted records: our own donations and the organiser's payee.
   const ledger = new Ledger();
@@ -46,7 +48,7 @@ export async function releaseStage({ project, stage, paypal, clock = () => Date.
       match: { authorization_id: d.authorizationId, stage_id: stage.id },
       maxAmount: slices[i] / 100,
     })),
-    { tool: 'payout_worker', match: { payee: project.worker.email, stage_id: stage.id }, maxAmount: stageCents / 100 },
+    { tool: 'payout_worker', match: { payee: project.worker.email, stage_id: stage.id }, maxAmount: owedCents / 100 },
   ];
   const gate = new Tollgate({ backend: paypal, intent, ledger, audit: auditFor(project, clock) });
 
