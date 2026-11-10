@@ -72,6 +72,17 @@ export function makeClaudeReviewer({ client = null, model = 'claude-haiku-5-5', 
   };
 }
 
+/**
+ * The two independent reviewers the pipeline expects: different prompts and, optionally,
+ * different models (set REVIEWER_MODEL_B). Disagreement between them sends a case to a human.
+ */
+export function defaultReviewers({ client = null, modelA = process.env.REVIEWER_MODEL_A ?? 'claude-haiku-5-5', modelB = process.env.REVIEWER_MODEL_B ?? modelA } = {}) {
+  return [
+    makeClaudeReviewer({ client, model: modelA, variant: 'checklist' }),
+    makeClaudeReviewer({ client, model: modelB, variant: 'skeptic' }),
+  ];
+}
+
 /** A scripted reviewer for tests and the no-keys mode. `table` maps imageRef -> raw review. */
 export function makeFixtureReviewer(name, table) {
   return {
