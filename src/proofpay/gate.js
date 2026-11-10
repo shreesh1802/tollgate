@@ -25,7 +25,9 @@ export function decideRelease({ stage, checks, reviews, config = DEFAULTS }) {
   const invalid = reviews.length - valid.length;
   if (valid.length < 2) add('HOLD', 'reviews-incomplete', `${valid.length} of ${reviews.length} reviews valid`);
   else {
-    const flags = valid.flatMap((r) => r.suspicion);
+    // "unrelated" only says the photo shows something else. That is a mismatch (the worker can
+    // retry), not fraud, and the does-not-match rule below already handles it.
+    const flags = valid.flatMap((r) => r.suspicion).filter((f) => f !== 'unrelated');
     if (flags.length) add('HOLD', 'suspicion-flag', [...new Set(flags)].join(', '));
     const matches = valid.map((r) => r.matchesSpec);
     if (matches.every((m) => !m) && valid.every((r) => r.confidence >= 0.6)) add('RESUBMIT', 'does-not-match-spec', 'both reviewers say the photo does not show the stage');

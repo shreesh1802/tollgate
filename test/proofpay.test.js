@@ -219,3 +219,15 @@ test('Tollgate itself blocks money moves even if the pipeline is bypassed', asyn
   assert.equal(e.rule, 'exceeds-captured');
   assert.equal(paypal.effects.length, 0);
 });
+
+test('an unrelated photo is a mismatch the worker can retry, not a fraud flag for a human', async () => {
+  const ctx = setup();
+  const t = { x: review({ visibleCode: 'AAAA', matchesSpec: false, confidence: 0.95, suspicion: ['unrelated'] }) };
+  const r = await submit(ctx, 'S1', 'x', facts(H[0]), reviewers(t));
+  assert.equal(r.decision, 'RESUBMIT');
+  assert.ok(r.reasons.some((x) => x.rule === 'does-not-match-spec'));
+  assert.equal(ctx.paypal.effects.length, 0);
+  // Real fraud flags still go to a human.
+  const s = { x: review({ visibleCode: 'AAAA', matchesSpec: false, confidence: 0.95, suspicion: ['screen_photo'] }) };
+  assert.equal((await submit(setup(), 'S1', 'x', facts(H[0]), reviewers(s))).decision, 'HOLD');
+});
