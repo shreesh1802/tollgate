@@ -83,6 +83,27 @@ export function defaultReviewers({ client = null, modelA = process.env.REVIEWER_
   ];
 }
 
+/**
+ * SIMULATED reviewer for the no-keys demo. It does not look at the image: it reports whatever
+ * the uploader's `demo` settings say. The server only enables it when REVIEWERS=demo, and the
+ * UI labels such runs as simulated.
+ */
+export function makeDemoReviewer(name) {
+  return {
+    name: `simulated:${name}`,
+    async review({ demo = {} }) {
+      return validateReview({
+        matchesSpec: demo.matchesSpec ?? true,
+        confidence: 0.9,
+        observations: 'SIMULATED REVIEW (no AI model was used)',
+        visibleCode: demo.visibleCode ?? null,
+        suspicion: demo.flags ?? [],
+        textInImage: null,
+      });
+    },
+  };
+}
+
 /** A scripted reviewer for tests and the no-keys mode. `table` maps imageRef -> raw review. */
 export function makeFixtureReviewer(name, table) {
   return {

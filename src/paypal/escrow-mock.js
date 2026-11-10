@@ -24,6 +24,23 @@ export class MockEscrowPayPal {
     this.auths.set(id, { cents: toCents(amount), captured: 0, currency });
   }
 
+  // Same donation interface as SandboxEscrowPayPal. The mock has no browser step, so the
+  // order has no approve link and is authorised immediately.
+  async createDonationOrder({ amount, currency = 'USD' }) {
+    this.orders ??= new Map();
+    const orderId = `MOCK-ORD-${this.orders.size + 1}`;
+    this.orders.set(orderId, { amount, currency });
+    return { orderId, status: 'APPROVED', approveUrl: null };
+  }
+
+  async authorizeOrder(orderId) {
+    const o = this.orders?.get(orderId);
+    if (!o) throw new Error('NOT_APPROVED: unknown order');
+    const authorizationId = `MOCK-AUTH-${this.auths.size + 1}`;
+    this.reserve(authorizationId, o.amount, o.currency);
+    return { authorizationId, status: 'CREATED', amount: Number(o.amount).toFixed(2), currency: o.currency, expiresAt: new Date(Date.now() + 29 * 86400000).toISOString() };
+  }
+
   async call(tool, args = {}, { requestId = null } = {}) {
     if (requestId && this.idem.has(requestId)) return structuredClone(this.idem.get(requestId));
     const result = this.#exec(tool, args);

@@ -34,13 +34,24 @@ export function createProject({ id, title, worker, site, currency = 'USD', stage
   return project;
 }
 
-export function addDonation(project, { donor, authorizationId, amount }) {
-  const d = { id: `D${project.donations.length + 1}`, donor, authorizationId, amount: Number(amount).toFixed(2), capturedCents: 0 };
+export function addDonation(project, { donor, authorizationId = null, amount, ...extra }) {
+  const d = {
+    id: `D${project.donations.length + 1}`,
+    donor,
+    authorizationId: authorizationId ?? null, // null until the donor has approved and we have authorised
+    status: authorizationId ? 'CONFIRMED' : 'AWAITING_APPROVAL',
+    amount: Number(amount).toFixed(2),
+    capturedCents: 0,
+    ...extra,
+  };
   project.donations.push(d);
   return d;
 }
 
-export const totalReservedCents = (project) => project.donations.reduce((a, d) => a + toCents(d.amount), 0);
+/** Only these can be captured from: the donor approved and the money is reserved. */
+export const confirmedDonations = (project) => project.donations.filter((d) => d.authorizationId);
+
+export const totalReservedCents = (project) => confirmedDonations(project).reduce((a, d) => a + toCents(d.amount), 0);
 export const totalCapturedCents = (project) => project.donations.reduce((a, d) => a + d.capturedCents, 0);
 
 /** The project's hash-chained audit log, shared with Tollgate so one chain covers everything. */
