@@ -39,7 +39,7 @@ const SYSTEM = {
 };
 
 /** A real reviewer backed by Claude vision. `variant` picks one of two independent prompts. */
-export function makeClaudeReviewer({ client = null, model = 'claude-haiku-5-5', variant = 'checklist' } = {}) {
+export function makeClaudeReviewer({ client = null, model = 'claude-haiku-5-5', variant = 'checklist', onUsage = null } = {}) {
   return {
     name: `claude:${model}:${variant}`,
     async review({ imageBase64, mediaType, stageSpec }) {
@@ -58,6 +58,7 @@ export function makeClaudeReviewer({ client = null, model = 'claude-haiku-5-5', 
             ],
           }],
         });
+        onUsage?.(res.usage, model);
         text = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
       } catch (err) {
         return { ok: false, error: `reviewer call failed: ${err.message}` };
@@ -76,10 +77,10 @@ export function makeClaudeReviewer({ client = null, model = 'claude-haiku-5-5', 
  * The two independent reviewers the pipeline expects: different prompts and, optionally,
  * different models (set REVIEWER_MODEL_B). Disagreement between them sends a case to a human.
  */
-export function defaultReviewers({ client = null, modelA = process.env.REVIEWER_MODEL_A ?? 'claude-haiku-5-5', modelB = process.env.REVIEWER_MODEL_B ?? modelA } = {}) {
+export function defaultReviewers({ client = null, modelA = process.env.REVIEWER_MODEL_A ?? 'claude-haiku-5-5', modelB = process.env.REVIEWER_MODEL_B ?? modelA, onUsage = null } = {}) {
   return [
-    makeClaudeReviewer({ client, model: modelA, variant: 'checklist' }),
-    makeClaudeReviewer({ client, model: modelB, variant: 'skeptic' }),
+    makeClaudeReviewer({ client, model: modelA, variant: 'checklist', onUsage }),
+    makeClaudeReviewer({ client, model: modelB, variant: 'skeptic', onUsage }),
   ];
 }
 
