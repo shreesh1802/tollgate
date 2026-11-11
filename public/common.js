@@ -179,7 +179,8 @@ export async function chrome(active) {
   try {
     const cfg = await api('GET', '/api/config');
     const banner = document.getElementById('banner');
-    if (banner) {
+    // The hosted demo already says "Demo mode: test money only" in its guide, so the strip is shown only on other runs.
+    if (banner && !cfg.demo) {
       const parts = [cfg.mode === 'mock' ? 'Payments: mock PayPal (no sandbox)' : 'Payments: PayPal sandbox (test money only)'];
       parts.push(cfg.simulatedReviews ? 'Photo reviews: SIMULATED, no AI model in this run' : 'Photo reviews: Claude vision, two independent reviewers');
       banner.replaceChildren(h('div', { class: `banner ${cfg.simulatedReviews || cfg.mode === 'mock' ? 'warn' : 'info'}`, role: 'status' }, parts.join('   |   ')));
