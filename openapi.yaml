@@ -27,9 +27,10 @@ info:
     url: https://github.com/shreesh1802/tollgate/blob/main/LICENSE
 servers:
 - url: https://proofpay-on99.onrender.com
-  description: Hosted demo (simulated payments, real AI reviewers)
+  description: 'Production: hosted demo (simulated payments, real AI reviewers)'
+  x-environment: production
 - url: http://localhost:3000
-  description: Local server
+  description: 'Development: local server'
 tags:
 - name: Projects
   description: Create projects and read their public state and audit log.
@@ -63,9 +64,15 @@ paths:
                   ok:
                     type: boolean
                     example: true
+                    description: The ok.
                   uptimeSeconds:
                     type: integer
                     example: 3600
+                    description: The uptime seconds.
+                description: The get health object.
+              example:
+                ok: true
+                uptimeSeconds: 3600
   /api/config:
     get:
       tags:
@@ -92,25 +99,46 @@ paths:
                     enum:
                     - mock
                     - sandbox
+                    description: The mode.
+                    example: mock
                   reviewMode:
                     type: string
                     enum:
                     - demo
                     - claude
+                    description: The review mode.
+                    example: demo
                   simulatedReviews:
                     type: boolean
+                    description: The simulated reviews.
+                    example: true
                   maxUploadBytes:
                     type: integer
+                    description: The max upload bytes.
+                    example: 1
                   vendors:
                     type: array
                     items:
                       type: string
+                      description: The vendors.
+                      example: vendors
+                    description: The vendors.
+                    example: []
                   demo:
                     nullable: true
                     description: Present only on the hosted demo. Contains the demo project and role keys
                       so a visitor can try every role.
                     type: object
                     additionalProperties: true
+                description: The get config object.
+              example:
+                mode: mock
+                reviewMode: demo
+                simulatedReviews: true
+                maxUploadBytes: 1
+                vendors:
+                - vendors
+                demo: {}
   /api/projects:
     get:
       tags:
@@ -127,6 +155,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ProjectSummary'
+                description: The list projects object.
+                example: []
     post:
       tags:
       - Projects
@@ -144,6 +174,23 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/NewProject'
+            example: &id009
+              title: Repair the village hand pump
+              worker: &id007
+                name: Ravi Kumar
+                email: ravi@example.com
+              site: &id001
+                lat: 12.9716
+                lon: 77.5946
+                radiusM: 150
+              stages: &id008
+              - title: Repair the village hand pump
+                spec: The new pump head is installed and bolted to the base.
+                pct: 40
+                window:
+                  from: '2026-11-01T00:00:00Z'
+                  to: '2026-11-30T23:59:59Z'
+        description: The project to create.
       responses:
         '201':
           description: Project created.
@@ -158,12 +205,22 @@ paths:
                 properties:
                   id:
                     type: string
+                    description: The id.
+                    example: id
                   workerKey:
                     type: string
+                    description: The worker key.
+                    example: workerKey
                   workerLink:
                     type: string
                     format: uri
                     description: A link that opens the worker page already signed in.
+                    example: https://proofpay-on99.onrender.com
+                description: The create project object.
+              example:
+                id: id
+                workerKey: workerKey
+                workerLink: https://proofpay-on99.onrender.com
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -174,6 +231,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: &id003
+                error: no such project
   /api/projects/{id}:
     get:
       tags:
@@ -195,6 +254,54 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Project'
+              example: &id016
+                id: P1
+                title: Repair the village hand pump
+                startedAt: '2026-11-01T09:00:00.000Z'
+                currency: USD
+                worker: &id013
+                  name: Ravi Kumar
+                site: *id001
+                donations: &id014
+                - id: P1
+                  donor: Asha
+                  amount: 25
+                  status: AWAITING_APPROVAL
+                  released: '10.00'
+                totals: &id005
+                  reserved: '30.00'
+                  captured: '10.00'
+                  paid: '10.00'
+                  inTransit: '0.00'
+                  problem: '0.00'
+                holdExpiresAt: '2026-11-30T09:00:00.000Z'
+                stages: &id015
+                - id: P1
+                  index: 0
+                  title: Repair the village hand pump
+                  spec: The new pump head is installed and bolted to the base.
+                  pct: 40
+                  window:
+                    from: '2026-11-01T00:00:00Z'
+                    to: '2026-11-30T23:59:59Z'
+                  status: PENDING
+                  release:
+                    ok: true
+                    reason: capture failed
+                    payout:
+                      amount: '25'
+                      status: ACTIVE
+                    captures: &id002
+                    - {}
+                  releasedAt: '2026-11-10T19:10:12.000Z'
+                  code: 7K2Q
+                  submissions: &id012
+                  - id: P1
+                    status: RECEIVED
+                    receivedAt: '2026-11-10T19:09:04.352Z'
+                    decision: RELEASE
+                    reasons: &id011
+                    - code-missing
         '404':
           $ref: '#/components/responses/NotFound'
   /api/projects/{id}/audit:
@@ -224,12 +331,23 @@ paths:
                     properties:
                       ok:
                         type: boolean
+                        description: The ok.
+                        example: true
                     additionalProperties: true
                   entries:
                     type: array
                     items:
                       type: object
                       additionalProperties: true
+                      description: The entries.
+                    description: The entries.
+                    example: []
+                description: The get audit log object.
+              example:
+                chain:
+                  ok: true
+                entries:
+                - {}
         '404':
           $ref: '#/components/responses/NotFound'
   /api/projects/{id}/donations:
@@ -260,12 +378,19 @@ paths:
                   minLength: 1
                   maxLength: 60
                   example: Asha
+                  description: The donor.
                 amount:
                   type: number
                   minimum: 1
                   maximum: 1000
                   multipleOf: 0.01
                   example: 25
+                  description: The amount.
+              description: The create donation object.
+            example:
+              donor: Asha
+              amount: 25
+        description: Who is donating and how much.
       responses:
         '201':
           description: Donation created.
@@ -279,6 +404,8 @@ paths:
                 properties:
                   donationId:
                     type: string
+                    description: The donation id.
+                    example: donationId
                   status:
                     $ref: '#/components/schemas/DonationStatus'
                   approveUrl:
@@ -286,6 +413,12 @@ paths:
                     format: uri
                     nullable: true
                     description: Where the donor approves the reservation. Absent in mock mode.
+                    example: https://proofpay-on99.onrender.com
+                description: The create donation object.
+              example:
+                donationId: donationId
+                status: AWAITING_APPROVAL
+                approveUrl: https://proofpay-on99.onrender.com
         '400':
           $ref: '#/components/responses/BadRequest'
         '404':
@@ -305,22 +438,25 @@ paths:
         required: true
         schema:
           type: string
+          description: Project id.
+          example: P1
         description: Project id.
-        example: P1
       - name: donation
         in: query
         required: true
         schema:
           type: string
+          description: Donation id.
+          example: D1
         description: Donation id.
-        example: D1
       - name: token
         in: query
         required: true
         schema:
           type: string
+          description: The PayPal order id.
+          example: 5O190127
         description: The PayPal order id.
-        example: 5O190127
       responses:
         '302':
           description: Redirect to the project page (`donated=1`, or an `error=` value).
@@ -328,6 +464,9 @@ paths:
             Location:
               schema:
                 type: string
+                description: A relative or absolute URL.
+                example: /?project=P1&donated=1
+              description: Where the browser is sent next.
   /api/projects/{id}/stages/{stageId}/submissions:
     post:
       tags:
@@ -352,28 +491,34 @@ paths:
         required: true
         schema:
           type: string
+          description: Stage id within the project.
+          example: S1
         description: Stage id within the project.
-        example: S1
       - name: demoCode
         in: query
         required: false
         schema:
           type: string
+          description: Simulated reviewers only. The code they report seeing.
+          example: demoCode
         description: Simulated reviewers only. The code they report seeing.
       - name: demoMatch
         in: query
         required: false
         schema:
           type: string
-          enum:
-          - '0'
-          - '1'
-        description: Simulated reviewers only. '0' = the photo does not match the stage.
+          description: Simulated reviewers only. Send 0 to make the simulated reviewers say the photo
+            does not match the stage; any other value means it matches.
+          example: '0'
+        description: Simulated reviewers only. Send 0 to make the simulated reviewers say the photo does
+          not match the stage; any other value means it matches.
       - name: demoFlags
         in: query
         required: false
         schema:
           type: string
+          description: Simulated reviewers only. Comma-separated suspicion flags.
+          example: demoFlags
         description: Simulated reviewers only. Comma-separated suspicion flags.
       requestBody:
         required: true
@@ -382,10 +527,15 @@ paths:
             schema:
               type: string
               format: binary
+              description: The submit evidence object.
+              example: photo.jpg
           image/png:
             schema:
               type: string
               format: binary
+              description: The submit evidence object.
+              example: photo.jpg
+        description: The raw photo bytes (JPEG or PNG).
       responses:
         '200':
           description: The decision for this submission.
@@ -393,6 +543,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SubmissionResult'
+              example: &id020
+                decision: RELEASE
+                status: RECEIVED
+                submissionId: S1-1
+                reasons: &id017
+                - rule: code-missing
+                checks: &id018
+                - id: duplicate
+                  status: pass
+                  detail: Photo taken 12 m from the site
+                reviews: &id019
+                - reviewer: checklist
+                  matchesSpec: true
+                  confidence: 0.9
+                  observations: A new green pump is bolted to the concrete base.
+                  visibleCode: 7K2Q
+                  suspicion:
+                  - suspicion
+                  textInImage: 7K2Q
+                  error: no such project
+                release: &id004
+                  ok: true
+                  reason: capture failed
+                  payout: &id010
+                    amount: '25'
+                    status: ACTIVE
+                  captures: *id002
         '400':
           $ref: '#/components/responses/BadRequest'
         '403':
@@ -405,24 +582,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id003
         '413':
           description: The upload is larger than `maxUploadBytes`.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id003
         '415':
           description: The file is not a JPEG or PNG.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id003
         '429':
           description: The hourly AI review quota has been reached.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id003
   /api/images/{projectId}/{subId}:
     get:
       tags:
@@ -441,15 +622,17 @@ paths:
         required: true
         schema:
           type: string
+          description: Project id.
+          example: P1
         description: Project id.
-        example: P1
       - name: subId
         in: path
         required: true
         schema:
           type: string
+          description: Submission id.
+          example: S1-1
         description: Submission id.
-        example: S1-1
       responses:
         '200':
           description: The photo.
@@ -458,10 +641,14 @@ paths:
               schema:
                 type: string
                 format: binary
+                description: The get evidence image object.
+                example: photo.jpg
             image/png:
               schema:
                 type: string
                 format: binary
+                description: The get evidence image object.
+                example: photo.jpg
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
@@ -485,6 +672,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/QueueItem'
+                description: The get verifier queue object.
+                example: []
         '401':
           $ref: '#/components/responses/Unauthorized'
   /api/verify/{projectId}/{submissionId}:
@@ -504,15 +693,17 @@ paths:
         required: true
         schema:
           type: string
+          description: Project id.
+          example: P1
         description: Project id.
-        example: P1
       - name: submissionId
         in: path
         required: true
         schema:
           type: string
+          description: Submission id from the verifier queue.
+          example: S1-1
         description: Submission id from the verifier queue.
-        example: S1-1
       requestBody:
         required: true
         content:
@@ -527,9 +718,17 @@ paths:
                   enum:
                   - approve
                   - reject
+                  description: The decision.
+                  example: approve
                 evidenceHash:
                   type: string
                   description: The hash from the queue item. Required to approve.
+                  example: evidenceHash
+              description: The decide submission object.
+            example:
+              decision: approve
+              evidenceHash: evidenceHash
+        description: The verifier decision.
       responses:
         '200':
           description: The submission's new status.
@@ -544,6 +743,10 @@ paths:
                     $ref: '#/components/schemas/SubmissionStatus'
                   release:
                     $ref: '#/components/schemas/Release'
+                description: The decide submission object.
+              example:
+                status: RECEIVED
+                release: *id004
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -554,26 +757,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id003
         '502':
           description: PayPal returned an error. Nothing was released.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+              example: *id003
 components:
   securitySchemes:
     WorkerKey:
       type: apiKey
       in: header
       name: X-Worker-Key
+      description: Secret key returned when the project is created. Lets the worker upload evidence.
     VerifierKey:
       type: apiKey
       in: header
       name: X-Verifier-Key
+      description: Key held by the human verifier. Lets them read the queue and decide held cases.
     OrganizerKey:
       type: apiKey
       in: header
       name: X-Organizer-Key
+      description: Optional key some servers require to create projects.
   parameters:
     ProjectId:
       name: id
@@ -590,24 +798,32 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            error: no such project
     Unauthorized:
       description: A required key is missing or wrong.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            error: no such project
     Forbidden:
       description: The key does not allow this, or the evidence is not public yet.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            error: no such project
     NotFound:
       description: No such project, stage or submission.
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
+          example:
+            error: no such project
   schemas:
     Error:
       type: object
@@ -618,8 +834,8 @@ components:
           type: string
           example: no such project
           description: What went wrong, in plain words.
-      example:
-        error: no such project
+      example: *id003
+      description: The error object.
     DonationStatus:
       type: string
       enum:
@@ -628,12 +844,15 @@ components:
       - FAILED
       description: AWAITING_APPROVAL = waiting for the donor at PayPal; CONFIRMED = the money is reserved;
         FAILED = not approved.
+      example: AWAITING_APPROVAL
     StageStatus:
       type: string
       enum:
       - PENDING
       - ACTIVE
       - RELEASED
+      description: The stage status object.
+      example: PENDING
     SubmissionStatus:
       type: string
       enum:
@@ -644,6 +863,8 @@ components:
       - BLOCKED
       - REJECTED
       - RELEASE_FAILED
+      description: The submission status object.
+      example: RECEIVED
     Decision:
       type: string
       enum:
@@ -651,6 +872,8 @@ components:
       - RESUBMIT
       - HOLD
       - BLOCK
+      description: The decision object.
+      example: RELEASE
     Totals:
       type: object
       description: Amounts in the project currency. `paid` counts only payouts PayPal has settled.
@@ -675,6 +898,7 @@ components:
           type: string
           example: '0.00'
           description: Payouts that failed, were returned or are unclaimed.
+      example: *id005
     ProjectSummary:
       type: object
       properties:
@@ -693,6 +917,14 @@ components:
           items:
             $ref: '#/components/schemas/StageStatus'
           description: The stages of the project, in order.
+          example: []
+      description: The project summary object.
+      example:
+        id: P1
+        title: Repair the village hand pump
+        totals: *id005
+        stages:
+        - PENDING
     Site:
       type: object
       required:
@@ -718,6 +950,8 @@ components:
           maximum: 5000
           description: Photos must be taken within this many metres.
           example: 150
+      description: The site object.
+      example: *id001
     TimeWindow:
       type: object
       required:
@@ -734,6 +968,10 @@ components:
           format: date-time
           description: End of the window (ISO 8601).
           example: '2026-11-30T23:59:59Z'
+      description: The time window object.
+      example: &id006
+        from: '2026-11-01T00:00:00Z'
+        to: '2026-11-30T23:59:59Z'
     NewStage:
       type: object
       required:
@@ -757,6 +995,12 @@ components:
           example: 40
         window:
           $ref: '#/components/schemas/TimeWindow'
+      description: The new stage object.
+      example:
+        title: Repair the village hand pump
+        spec: The new pump head is installed and bolted to the base.
+        pct: 40
+        window: *id006
     NewProject:
       type: object
       required:
@@ -786,6 +1030,7 @@ components:
               description: The PayPal account that gets paid. Never published.
               example: ravi@example.com
           description: The person who does the work and gets paid.
+          example: *id007
         site:
           $ref: '#/components/schemas/Site'
         stages:
@@ -795,6 +1040,9 @@ components:
           items:
             $ref: '#/components/schemas/NewStage'
           description: The stages of the project, in order.
+          example: *id008
+      description: The new project object.
+      example: *id009
     Donation:
       type: object
       properties:
@@ -816,6 +1064,13 @@ components:
           type: string
           description: How much of this donation has been captured so far.
           example: '10.00'
+      description: The donation object.
+      example:
+        id: P1
+        donor: Asha
+        amount: 25
+        status: AWAITING_APPROVAL
+        released: '10.00'
     Payout:
       type: object
       description: The PayPal payout to the worker for a stage. PayPal settles it after accepting it.
@@ -824,11 +1079,12 @@ components:
         amount:
           type: string
           description: Amount in the project currency.
-          example: 25
+          example: '25'
         status:
           type: string
           description: PayPal's own payout status (for example PENDING or SUCCESS).
           example: ACTIVE
+      example: *id010
     Release:
       type: object
       properties:
@@ -847,7 +1103,11 @@ components:
           items:
             type: object
             additionalProperties: true
+            description: The captures.
           description: Per-donor captures made for this release.
+          example: *id002
+      description: The release object.
+      example: *id004
     SubmissionSummary:
       type: object
       properties:
@@ -869,9 +1129,16 @@ components:
           items:
             type: string
             description: Rule id such as duplicate-evidence or code-missing.
+            example: reasons
           description: Why the gate decided this way, as rule ids such as duplicate-evidence or code-missing.
-          example: &id001
-          - code-missing
+          example: *id011
+      description: The submission summary object.
+      example:
+        id: P1
+        status: RECEIVED
+        receivedAt: '2026-11-10T19:09:04.352Z'
+        decision: RELEASE
+        reasons: *id011
     Stage:
       type: object
       properties:
@@ -918,6 +1185,20 @@ components:
           items:
             $ref: '#/components/schemas/SubmissionSummary'
           description: Evidence uploads for this stage.
+          example: *id012
+      description: The stage object.
+      example:
+        id: P1
+        index: 0
+        title: Repair the village hand pump
+        spec: The new pump head is installed and bolted to the base.
+        pct: 40
+        window: *id006
+        status: PENDING
+        release: *id004
+        releasedAt: '2026-11-10T19:10:12.000Z'
+        code: 7K2Q
+        submissions: *id012
     Project:
       type: object
       properties:
@@ -947,6 +1228,7 @@ components:
               description: Full name.
               example: Ravi Kumar
           description: The person who does the work and gets paid.
+          example: *id013
         site:
           $ref: '#/components/schemas/Site'
         donations:
@@ -954,6 +1236,7 @@ components:
           items:
             $ref: '#/components/schemas/Donation'
           description: Every donation to the project.
+          example: *id014
         totals:
           $ref: '#/components/schemas/Totals'
         holdExpiresAt:
@@ -967,6 +1250,9 @@ components:
           items:
             $ref: '#/components/schemas/Stage'
           description: The stages of the project, in order.
+          example: *id015
+      description: The project object.
+      example: *id016
     Check:
       type: object
       properties:
@@ -978,7 +1264,7 @@ components:
           - time
           - code
           description: Unique identifier.
-          example: P1
+          example: duplicate
         status:
           type: string
           enum:
@@ -986,11 +1272,16 @@ components:
           - fail
           - unknown
           description: Current state.
-          example: ACTIVE
+          example: pass
         detail:
           type: string
           description: Explanation of the result.
           example: Photo taken 12 m from the site
+      description: The check object.
+      example:
+        id: duplicate
+        status: pass
+        detail: Photo taken 12 m from the site
     Review:
       type: object
       description: One independent AI reviewer's structured opinion. It advises; it never decides.
@@ -1023,18 +1314,29 @@ components:
           type: array
           items:
             type: string
+            description: The suspicion.
+            example: suspicion
           description: Flags raised about the photo, such as screen-photo.
           example: []
         textInImage:
           type: string
           nullable: true
-          description: Text read out of the photo. Treated as data
-          never as instructions.: null
+          description: Text read out of the photo. Treated as data, never as instructions.
           example: 7K2Q
         error:
           type: string
           description: What went wrong, in plain words.
           example: no such project
+      example:
+        reviewer: checklist
+        matchesSpec: true
+        confidence: 0.9
+        observations: A new green pump is bolted to the concrete base.
+        visibleCode: 7K2Q
+        suspicion:
+        - suspicion
+        textInImage: 7K2Q
+        error: no such project
     SubmissionResult:
       type: object
       properties:
@@ -1051,20 +1353,25 @@ components:
           items:
             type: object
             additionalProperties: true
+            description: The reasons.
           description: Why the gate decided this way, as rule ids such as duplicate-evidence or code-missing.
-          example: *id001
+          example: *id017
         checks:
           type: array
           items:
             $ref: '#/components/schemas/Check'
           description: Results of the deterministic checks.
+          example: *id018
         reviews:
           type: array
           items:
             $ref: '#/components/schemas/Review'
           description: Opinions of the two independent AI reviewers.
+          example: *id019
         release:
           $ref: '#/components/schemas/Release'
+      description: The submission result object.
+      example: *id020
     QueueItem:
       type: object
       properties:
@@ -1093,6 +1400,10 @@ components:
                 text.
               example: The new pump head is installed and bolted to the base.
           description: The stage this item belongs to.
+          example: &id024
+            id: P1
+            title: Repair the village hand pump
+            spec: The new pump head is installed and bolted to the base.
         submission:
           type: object
           additionalProperties: true
@@ -1122,19 +1433,44 @@ components:
               items:
                 $ref: '#/components/schemas/Review'
               description: Opinions of the two independent AI reviewers.
+              example: &id021
+              - reviewer: checklist
+                matchesSpec: true
+                confidence: 0.9
+                observations: A new green pump is bolted to the concrete base.
+                visibleCode: 7K2Q
+                suspicion:
+                - suspicion
+                textInImage: 7K2Q
+                error: no such project
             reasons:
               type: array
               items:
                 type: object
                 additionalProperties: true
+                description: The reasons.
               description: Why the gate decided this way, as rule ids such as duplicate-evidence or code-missing.
-              example: *id001
+              example: &id022
+              - rule: code-missing
             checks:
               type: array
               items:
                 $ref: '#/components/schemas/Check'
               description: Results of the deterministic checks.
+              example: &id023
+              - id: duplicate
+                status: pass
+                detail: Photo taken 12 m from the site
           description: The submission waiting for review.
+          example: &id025
+            id: P1
+            status: RECEIVED
+            releaseError: PayPal timeout
+            receivedAt: '2026-11-10T19:09:04.352Z'
+            facts: {}
+            reviews: *id021
+            reasons: *id022
+            checks: *id023
         evidenceHash:
           type: string
           description: Fingerprint of the evidence the verifier is approving. Send it back unchanged.
@@ -1143,6 +1479,14 @@ components:
           type: string
           description: Path of the evidence photo.
           example: /api/images/P1/S1-1
+      description: The queue item object.
+      example:
+        projectId: P1
+        projectTitle: Repair the village hand pump
+        stage: *id024
+        submission: *id025
+        evidenceHash: 9f2c1b7a
+        imageUrl: /api/images/P1/S1-1
 externalDocs:
   description: Source code and README
   url: https://github.com/shreesh1802/tollgate
