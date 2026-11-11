@@ -14,6 +14,7 @@ import { hamming } from '../src/proofpay/evidence.js';
 import { dHash } from '../src/proofpay/image.js';
 import { auditFor } from '../src/proofpay/project.js';
 import { seedDemoProject, SAMPLE_PHOTOS, DEMO_CODE } from '../src/server/seed.js';
+import { makeWebhookNotifier } from '../src/server/notify.js';
 
 const NOW = Date.UTC(2026, 10, 10, 12);
 const SITE = { lat: 12.9716, lon: 77.5946, radiusM: 300 };
@@ -474,5 +475,59 @@ test('re-uploading the stage 1 photo for stage 2 is blocked as a duplicate (the 
     const again = await up('S2', 'stage1_before.png');
     assert.equal(again.json.decision, 'BLOCK');
     assert.ok(again.json.reasons.some((x) => x.rule === 'duplicate-evidence'));
+  } finally { await ctx.close(); }
+});
+
+// ---- notifying a human when a case is held ----
+
+const tick = () => new Promise((r) => setTimeout(r, 60)); // the notification is fire-and-forget
+
+function hookCtx(status = 200) {
+  const posts = [];
+  const notify = makeWebhookNotifier({
+    url: 'https://hooks.example.test/c/1', publicUrl: 'http://x.test', log: { warn() {} },
+    fetchImpl: async (u, init) => { posts.push(JSON.parse(init.body)); if (status === 0) throw new Error('down'); return { ok: status < 400, status }; },
+  });
+  return { posts, notify };
+}
+
+test('a held submission notifies the verifier once, with no keys or links to the worker', async () => {
+  const { posts, notify } = hookCtx();
+  const ctx = await boot({ app: { notify } });
+  try {
+    const p = await funded(ctx);
+    const r = await p.upload('S1', pngNoExif(0), { qs: `?demoCode=${await p.code('S1')}` }); // no location data: held
+    assert.equal(r.json.decision, 'HOLD');
+    await tick();
+    assert.equal(posts.length, 1);
+    assert.equal(posts[0].event, 'review_needed');
+    assert.equal(posts[0].submission, 'S1-1');
+    const raw = JSON.stringify(posts[0]);
+    assert.equal(raw.includes(p.workerKey), false);
+    assert.equal(raw.includes('vk'), false); // the verifier key
+    assert.equal(raw.includes('ravi@worker.example'), false);
+  } finally { await ctx.close(); }
+});
+
+test('a clean automatic release sends no notification', async () => {
+  const { posts, notify } = hookCtx();
+  const ctx = await boot({ app: { notify } });
+  try {
+    const p = await funded(ctx);
+    const r = await p.upload('S1', photo(0), { qs: `?demoCode=${await p.code('S1')}` });
+    assert.equal(r.json.decision, 'RELEASE');
+    await tick();
+    assert.equal(posts.length, 0);
+  } finally { await ctx.close(); }
+});
+
+test('a webhook that is down never breaks an upload', async () => {
+  const { notify } = hookCtx(0);
+  const ctx = await boot({ app: { notify } });
+  try {
+    const p = await funded(ctx);
+    const r = await p.upload('S1', pngNoExif(0), { qs: `?demoCode=${await p.code('S1')}` });
+    assert.equal(r.status, 200);
+    assert.equal(r.json.decision, 'HOLD');
   } finally { await ctx.close(); }
 });

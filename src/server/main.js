@@ -11,6 +11,7 @@ import { MockEscrowPayPal } from '../paypal/escrow-mock.js';
 import { SandboxEscrowPayPal } from '../paypal/sandbox-escrow.js';
 import { defaultReviewers, makeDemoReviewer } from '../proofpay/review.js';
 import { seedDemoProject, DEMO_CODE } from './seed.js';
+import { makeWebhookNotifier } from './notify.js';
 
 try { process.loadEnvFile('.env'); } catch { /* no .env file, use the real environment */ }
 
@@ -43,8 +44,11 @@ if (wantSeed && mode === 'mock' && store.list().length === 0) {
 const demoProject = wantSeed && mode === 'mock' ? store.list().find((p) => p.workerKey) : null;
 const demo = demoProject ? { projectId: demoProject.id, workerKey: demoProject.workerKey, verifierKey } : null;
 
+// Optional: ping a human (Zapier, Slack, ...) whenever a case is held or a payment fails.
+const notify = env.NOTIFY_WEBHOOK_URL ? makeWebhookNotifier({ url: env.NOTIFY_WEBHOOK_URL, publicUrl, maxPerHour: Number(env.NOTIFY_MAX_PER_HOUR ?? 20) }) : null;
+
 const app = createApp({
-  store, paypal, reviewers, reviewMode, mode, publicUrl, verifierKey, demo,
+  store, paypal, reviewers, reviewMode, mode, publicUrl, verifierKey, demo, notify,
   maxProjects: Number(env.MAX_PROJECTS ?? 0),
   organizerKey: env.ORGANIZER_KEY ?? null,
   uploadsDir: path.join(dataDir, 'uploads'),

@@ -124,7 +124,7 @@ Results: [`results/vision-claude-haiku-5-5.json`](results/vision-claude-haiku-5-
 
 ### Automated tests (`npm test`)
 
-82 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
+94 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
 image text, human approval bound to evidence, crash and retry safety, provider failures during
 release, restart recovery, payout settlement (pending, paid, failed), access control, upload limits, concurrency (two simultaneous uploads
 release a stage exactly once), the donation return flow, and the real PayPal adapter against a
@@ -184,6 +184,14 @@ coordinates and upload a phone photo taken there with location tagging on.
 The home page shows a **"Try it in two minutes" guide** with links for each role (donor, worker,
 verifier) and the verifier key, so nothing needs to be copied from the log.
 
+### Tell the verifier when a case needs them
+
+Set `NOTIFY_WEBHOOK_URL` to an https webhook and the app posts a short JSON message whenever a
+submission is held for review or a payment fails. With a Zapier "Catch Hook" you can turn that
+into an email or a Slack message in a couple of minutes. The message names the project and stage,
+lists the reasons, and links to the verifier page. It never contains a key, a worker link, the
+payee's email or the image. A broken webhook is logged and ignored: it can never fail an upload.
+
 ### Host it on Render
 
 `render.yaml` is a Render Blueprint. In the Render dashboard choose **New > Blueprint**, select this
@@ -237,6 +245,8 @@ then follow `spike/README.md` (authorize, partial captures, payout).
 | `ORGANIZER_KEY` | none | if set, required to create projects |
 | `MAX_REVIEWS_PER_HOUR` | `60` | caps model-backed reviews to protect an API budget |
 | `MAX_PROJECTS` | unlimited | caps how many projects can exist (set on public demos) |
+| `NOTIFY_WEBHOOK_URL` | none | an https webhook (Zapier Catch Hook, Slack, ...) that is pinged when a case is held or a payment fails |
+| `NOTIFY_MAX_PER_HOUR` | `20` | caps those messages |
 
 ### Other commands
 
@@ -304,7 +314,7 @@ public/          the web UI (plain HTML, CSS and ES modules, no build step); ven
 harness/         judge-check, real-model evals
 corpus/          the 14 attacks and 7 normal tasks for the agent-guard harness
 spike/           step-by-step PayPal sandbox script
-test/            82 tests
+test/            94 tests
 results/         recorded evaluation outputs
 ```
 

@@ -129,6 +129,7 @@ export function createApp({
   vendor = {}, // { '/vendor/name/': absoluteDirectory } third-party UI bundles served straight from node_modules
   demo = null, // { projectId, workerKey, verifierKey } shown on the home page in demo mode only
   maxProjects = 0, // 0 = unlimited; set on a public demo so it cannot be filled with projects
+  notify = null, // async (event) => void: tells a human when a case needs them (see notify.js)
 }) {
   const routes = [];
   const route = (method, pattern, handler) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), handler });
@@ -296,6 +297,10 @@ export function createApp({
       reviewTimes.push(clock());
       try {
         const out = await processSubmission({ project, stageId: stage.id, submission: up, deps });
+        if (notify && ['PENDING_REVIEW', 'RELEASE_FAILED'].includes(out.status)) {
+          // Fire and forget: the worker's upload must never wait on, or fail because of, a webhook.
+          notify({ kind: out.status === 'RELEASE_FAILED' ? 'release_failed' : 'review_needed', project, stage, submissionId: out.submissionId, reasons: out.reasons, error: out.release?.reason }).catch(() => {});
+        }
         return json(submissionView(out));
       } finally {
         store.put(project); // persist whatever happened, including a failed release
