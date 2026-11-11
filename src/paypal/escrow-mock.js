@@ -8,7 +8,15 @@ import { toCents, fromCents } from '../proofpay/money.js';
  * first result. `effects` is the ground truth the tests and harness check.
  */
 export class MockEscrowPayPal {
-  constructor({ crashAfter = null } = {}) {
+  /**
+   * payoutSettlesAfter: how many status checks a payout stays PENDING before it settles
+   *   (0 = settles immediately, like most sandbox runs after a few seconds).
+   * payoutFinalStatus: what it settles to, e.g. 'SUCCESS', 'FAILED', 'UNCLAIMED'.
+   */
+  constructor({ crashAfter = null, payoutSettlesAfter = 0, payoutFinalStatus = 'SUCCESS' } = {}) {
+    this.payoutSettlesAfter = payoutSettlesAfter;
+    this.payoutFinalStatus = payoutFinalStatus;
+    this.payouts = new Map(); // batch id -> { checks, amount, payee }
     this.auths = new Map(); // authorization id -> { cents, captured, currency }
     this.effects = [];
     this.idem = new Map();
@@ -17,6 +25,15 @@ export class MockEscrowPayPal {
     this.crashAfter = crashAfter; // drop the connection after this tool's side effect, once
     this.crashed = false;
     this.n = { capture: 0, payout: 0 };
+  }
+
+  /** Same shape as SandboxEscrowPayPal.getPayout. Settles after `payoutSettlesAfter` checks. */
+  async getPayout(batchId) {
+    const p = this.payouts.get(batchId);
+    if (!p) return { batchId, status: this.payoutFinalStatus, items: [{ status: this.payoutFinalStatus, amount: null, receiver: null }] };
+    p.checks += 1;
+    const status = p.checks >= this.payoutSettlesAfter ? this.payoutFinalStatus : 'PENDING';
+    return { batchId, status, items: [{ status, amount: p.amount, receiver: p.payee }] };
   }
 
   /** Rebuild reservations from saved projects after a restart (real PayPal remembers these itself). */
@@ -79,7 +96,9 @@ export class MockEscrowPayPal {
       if (this.paidCents + c > this.capturedCents) throw new Error('INSUFFICIENT_FUNDS');
       this.paidCents += c;
       this.effects.push({ type: 'payout', payee: args.payee, amount: fromCents(c), stage_id: args.stage_id });
-      return { batch_id: `PO-${++this.n.payout}`, status: 'SUCCESS', payee: args.payee, amount: fromCents(c), currency: args.currency };
+      const batch_id = `PO-${++this.n.payout}`;
+      this.payouts.set(batch_id, { checks: 0, amount: fromCents(c), payee: args.payee });
+      return { batch_id, status: this.payoutSettlesAfter > 0 ? 'PENDING' : this.payoutFinalStatus, payee: args.payee, amount: fromCents(c), currency: args.currency };
     }
     throw new Error(`UNKNOWN_TOOL ${tool}`);
   }

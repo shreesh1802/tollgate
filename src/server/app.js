@@ -14,6 +14,7 @@ import { createProject, addDonation, auditFor, confirmedDonations, totalCaptured
 import { processSubmission, humanDecision } from '../proofpay/pipeline.js';
 import { prepareUpload, sniffType, MAX_BYTES } from '../proofpay/image.js';
 import { fromCents } from '../proofpay/money.js';
+import { payoutState, refreshPayouts } from '../proofpay/payouts.js';
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -55,6 +56,27 @@ const redirect = (to) => ({ status: 302, headers: { Location: to }, body: '' });
 
 // ---- views: what each audience may see ----
 
+/**
+ * "paid" counts only payouts PayPal has settled. Payouts it accepted but has not settled are
+ * "inTransit", and payouts that failed, were returned or are unclaimed are "problem".
+ */
+function payoutTotals(p) {
+  const sum = { paid: 0, inTransit: 0, problem: 0 };
+  for (const s of p.stages) {
+    const pay = s.release?.payout;
+    if (!pay) continue;
+    const key = { paid: 'paid', pending: 'inTransit', problem: 'problem' }[payoutState(pay)];
+    sum[key] += Math.round(Number(pay.amount) * 100);
+  }
+  return {
+    reserved: fromCents(totalReservedCents(p)),
+    captured: fromCents(totalCapturedCents(p)),
+    paid: fromCents(sum.paid),
+    inTransit: fromCents(sum.inTransit),
+    problem: fromCents(sum.problem),
+  };
+}
+
 const holdExpiry = (p) => confirmedDonations(p).filter((d) => d.expiresAt).map((d) => d.expiresAt).sort()[0] ?? null;
 
 function projectView(p, { asWorker = false } = {}) {
@@ -65,7 +87,7 @@ function projectView(p, { asWorker = false } = {}) {
     worker: { name: p.worker.name }, // the payee's email is never published
     site: p.site,
     donations: p.donations.map((d) => ({ id: d.id, donor: d.donor, amount: d.amount, status: d.status, released: fromCents(d.capturedCents) })),
-    totals: { reserved: fromCents(totalReservedCents(p)), captured: fromCents(totalCapturedCents(p)), paid: fromCents(p.paidCents) },
+    totals: payoutTotals(p),
     holdExpiresAt: holdExpiry(p),
     stages: p.stages.map((s) => ({
       id: s.id,
@@ -96,7 +118,7 @@ function submissionView(out) {
 
 export function createApp({
   store, paypal, reviewers, reviewMode = 'demo', mode = 'mock', publicUrl, verifierKey, organizerKey = null,
-  uploadsDir, staticDir = null, clock = () => Date.now(), maxReviewsPerHour = 60,
+  uploadsDir, staticDir = null, clock = () => Date.now(), maxReviewsPerHour = 60, payoutCheckIntervalMs = 4000,
 }) {
   const routes = [];
   const route = (method, pattern, handler) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), handler });
@@ -134,7 +156,24 @@ export function createApp({
   route('GET', '/api/health', async () => json({ ok: true }));
   route('GET', '/api/config', async () => json({ mode, reviewMode, simulatedReviews: reviewMode === 'demo', maxUploadBytes: MAX_BYTES }));
 
-  route('GET', '/api/projects', async () => json(store.list().map((p) => ({ id: p.id, title: p.title, totals: projectView(p).totals, stages: p.stages.map((s) => s.status) }))));
+  // Payouts settle after PayPal accepts them, so reading a project also checks any pending ones.
+  const settle = async (id) => {
+    const p = store.get(id);
+    if (!p || !p.stages.some((s) => s.release?.payout && payoutState(s.release.payout) === 'pending')) return;
+    await locked(id, async () => {
+      const project = need(id);
+      try {
+        if (await refreshPayouts({ project, paypal, clock, minIntervalMs: payoutCheckIntervalMs })) store.put(project);
+      } catch (err) {
+        console.error('payout refresh failed:', err.message); // reading must never fail because of this
+      }
+    });
+  };
+
+  route('GET', '/api/projects', async () => {
+    for (const p of store.list()) await settle(p.id);
+    return json(store.list().map((p) => ({ id: p.id, title: p.title, totals: projectView(p).totals, stages: p.stages.map((s) => s.status) })));
+  });
 
   route('POST', '/api/projects', async ({ req }) => {
     if (organizerKey && !safeEqual(req.headers['x-organizer-key'], organizerKey)) throw new HttpError(401, 'organizer key required');
@@ -163,6 +202,8 @@ export function createApp({
   });
 
   route('GET', '/api/projects/:id', async ({ req, params }) => {
+    need(params.id);
+    await settle(params.id);
     const p = need(params.id);
     return json(projectView(p, { asWorker: safeEqual(req.headers['x-worker-key'], p.workerKey) }));
   });

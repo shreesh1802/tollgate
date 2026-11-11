@@ -37,7 +37,7 @@ async function card(it) {
     for (const b of buttons) b.disabled = true;
     try {
       const r = await api('POST', `/api/verify/${encodeURIComponent(it.projectId)}/${encodeURIComponent(it.submission.id)}`, { body: { decision, evidenceHash: it.evidenceHash }, headers: { 'x-verifier-key': stored() } });
-      clear(done).append(h('div', { class: `notice ${decision === 'approve' ? 'ok' : 'info'}`, text: decision === 'approve' ? `Approved. ${r.release?.payout ? `${r.release.payout.amount} paid out.` : ''}` : 'Rejected. Nothing was paid.' }));
+      clear(done).append(h('div', { class: `notice ${decision === 'approve' ? 'ok' : 'info'}`, text: decision === 'approve' ? `Approved. ${r.release?.payout ? `${r.release.payout.amount} released and sent as a payout.` : ''}` : 'Rejected. Nothing was paid.' }));
       setTimeout(load, 1500);
     } catch (e) { showError(done, e); for (const b of buttons) b.disabled = false; }
   };

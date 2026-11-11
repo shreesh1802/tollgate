@@ -297,3 +297,66 @@ test('donors see how much of their donation has been released', async () => {
     assert.deepEqual(after.map((d) => d.released), ['18.00', '12.00']); // 30% of each donor's $60 and $40
   } finally { await ctx.close(); }
 });
+
+// ---- payout settlement: accepted by PayPal first, settled a moment later ----
+
+const view = async (ctx, id) => (await ctx.api('GET', `/api/projects/${id}`)).json;
+
+test('a payout is "in transit" until PayPal settles it, and only then counts as paid', async () => {
+  const ctx = await boot({ paypal: new MockEscrowPayPal({ payoutSettlesAfter: 2 }), app: { payoutCheckIntervalMs: 0 } });
+  try {
+    const p = await funded(ctx);
+    const r = await p.upload('S1', photo(0), { qs: `?demoCode=${await p.code('S1')}` });
+    assert.equal(r.json.release.payout.state, 'pending');
+
+    let v = await view(ctx, p.id); // first status check: still PENDING
+    assert.equal(v.totals.paid, '0.00');
+    assert.equal(v.totals.inTransit, '30.00');
+    assert.equal(v.stages[0].release.payout.state, 'pending');
+
+    v = await view(ctx, p.id); // second check: settled
+    assert.equal(v.totals.paid, '30.00');
+    assert.equal(v.totals.inTransit, '0.00');
+    assert.equal(v.stages[0].release.payout.state, 'paid');
+
+    const audit = (await ctx.api('GET', `/api/projects/${p.id}/audit`)).json;
+    assert.equal(audit.entries.filter((e) => e.event === 'payout-update').length, 1);
+    assert.equal(audit.chain.ok, true);
+  } finally { await ctx.close(); }
+});
+
+test('an unclaimed or failed payout is reported as a problem, not as paid', async () => {
+  const ctx = await boot({ paypal: new MockEscrowPayPal({ payoutSettlesAfter: 1, payoutFinalStatus: 'UNCLAIMED' }), app: { payoutCheckIntervalMs: 0 } });
+  try {
+    const p = await funded(ctx);
+    await p.upload('S1', photo(0), { qs: `?demoCode=${await p.code('S1')}` });
+    const v = await view(ctx, p.id);
+    assert.equal(v.stages[0].release.payout.state, 'problem');
+    assert.equal(v.stages[0].release.payout.status, 'UNCLAIMED');
+    assert.equal(v.totals.problem, '30.00');
+    assert.equal(v.totals.paid, '0.00');
+  } finally { await ctx.close(); }
+});
+
+test('a PayPal error while checking a payout never breaks reading the project', async () => {
+  const paypal = new MockEscrowPayPal({ payoutSettlesAfter: 5 });
+  paypal.getPayout = async () => { throw new Error('provider down'); };
+  const ctx = await boot({ paypal, app: { payoutCheckIntervalMs: 0 } });
+  try {
+    const p = await funded(ctx);
+    await p.upload('S1', photo(0), { qs: `?demoCode=${await p.code('S1')}` });
+    const res = await ctx.api('GET', `/api/projects/${p.id}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.json.totals.inTransit, '30.00'); // stays pending, checked again next time
+  } finally { await ctx.close(); }
+});
+
+test('payouts recorded before settlement tracking existed still count as paid', async () => {
+  const ctx = await boot();
+  try {
+    const p = await funded(ctx);
+    await p.upload('S1', photo(0), { qs: `?demoCode=${await p.code('S1')}` });
+    delete ctx.store.get(p.id).stages[0].release.payout.state; // an older record
+    assert.equal((await view(ctx, p.id)).totals.paid, '30.00');
+  } finally { await ctx.close(); }
+});

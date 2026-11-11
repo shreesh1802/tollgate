@@ -41,7 +41,19 @@ export const fmtDate = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { date
 export const fmtDay = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)) : '');
 
 // ---- labels ----
-const STAGE = { PENDING: ['Waiting', 'muted'], ACTIVE: ['In progress', 'info'], RELEASED: ['Paid out', 'ok'] };
+const STAGE = { PENDING: ['Waiting', 'muted'], ACTIVE: ['In progress', 'info'], RELEASED: ['Released', 'ok'] };
+
+// What a PayPal payout status means for the person reading the page.
+export const PAYOUT_PROBLEM = {
+  UNCLAIMED: 'The worker\'s email has no PayPal account yet, so the payout is waiting to be claimed.',
+  FAILED: 'PayPal could not complete the payout. The money was taken from donors, so the organiser must resolve it.',
+  DENIED: 'PayPal denied the payout. The organiser must resolve it.',
+  BLOCKED: 'PayPal blocked the payout. The organiser must resolve it.',
+  RETURNED: 'The payout was returned to the platform.',
+  REFUNDED: 'The payout was refunded.',
+  REVERSED: 'The payout was reversed.',
+};
+export const payoutProblemText = (status) => PAYOUT_PROBLEM[status] ?? `PayPal reported the payout as ${status}.`;
 const SUBMISSION = {
   RELEASED: ['Verified, funds released', 'ok'],
   PENDING_REVIEW: ['With a human verifier', 'warn'],

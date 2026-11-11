@@ -124,9 +124,9 @@ Results: [`results/vision-claude-haiku-5-5.json`](results/vision-claude-haiku-5-
 
 ### Automated tests (`npm test`)
 
-68 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
+73 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
 image text, human approval bound to evidence, crash and retry safety, provider failures during
-release, restart recovery, access control, upload limits, concurrency (two simultaneous uploads
+release, restart recovery, payout settlement (pending, paid, failed), access control, upload limits, concurrency (two simultaneous uploads
 release a stage exactly once), the donation return flow, and the real PayPal adapter against a
 fake HTTP layer. Key safeguards were mutation-tested: breaking them makes tests fail.
 
@@ -263,8 +263,12 @@ then follow `spike/README.md` (authorize, partial captures, payout).
   opinions are correlated unless you set `REVIEWER_MODEL_B`.
 - **Simulated modes are labelled.** With `REVIEWERS=demo` no model runs, and with `MODE=mock` no
   PayPal call is made. The UI says so on every page.
-- **Payout settlement.** PayPal Payouts settle a few seconds after they are accepted. The app marks a
-  stage paid when PayPal accepts the payout, and does not yet poll for the final state.
+- **Payout settlement is tracked, but a failed payout is not auto-resolved.** PayPal accepts a payout
+  first and settles it a few seconds later. The app shows a stage as "released" once the money is
+  captured and the payout accepted, and as "paid" only after PayPal reports the payout item
+  `SUCCESS` (it polls while anyone is viewing the project). If a payout ends `FAILED`, `UNCLAIMED` or
+  `RETURNED`, the page shows it as a problem and the audit log records it, but resolving it
+  (for example re-sending to a corrected email) is a manual step for the organiser.
 - **Storage.** Projects are one JSON file with atomic writes: fine for a demo, not for production.
 - **Not a financial product.** This is a sandbox prototype. Holding other people's money is
   regulated in the real world.
@@ -281,7 +285,7 @@ public/          the web UI (plain HTML, CSS and ES modules, no build step)
 harness/         judge-check, real-model evals
 corpus/          the 14 attacks and 7 normal tasks for the agent-guard harness
 spike/           step-by-step PayPal sandbox script
-test/            68 tests
+test/            73 tests
 results/         recorded evaluation outputs
 ```
 

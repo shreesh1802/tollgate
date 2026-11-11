@@ -9,7 +9,9 @@ export class AuditLog {
 
   append(event) {
     const prev = this.entries.at(-1)?.hash ?? 'GENESIS';
-    const body = { seq: this.entries.length, ts: this.clock(), prev, ...event };
+    // Copy the event: an entry must never change after it is hashed, even if the caller later
+    // updates an object it passed in (for example a payout record whose status changes).
+    const body = { seq: this.entries.length, ts: this.clock(), prev, ...structuredClone(event) };
     const entry = { ...body, hash: sha256(prev + canonical(body)) };
     this.entries.push(entry);
     return entry;

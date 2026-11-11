@@ -1,4 +1,4 @@
-import { h, clear, api, qs, money, fmtDate, fmtDay, chrome, showError, stageBadge, submissionBadge, donationBadge, explain } from '/common.js';
+import { h, clear, api, qs, money, fmtDate, fmtDay, chrome, showError, stageBadge, submissionBadge, donationBadge, explain, payoutProblemText } from '/common.js';
 
 const app = document.getElementById('app');
 await chrome('home');
@@ -98,6 +98,8 @@ async function projectPage(id) {
     const stat = (value, label) => h('div', { class: 'stat' }, h('div', { class: 'v', text: value }), h('div', { class: 'l', text: label }));
     const held = Number(v.totals.reserved) - Number(v.totals.captured);
     clear(summary).append(stat(money(v.totals.reserved), 'reserved by donors'), stat(money(v.totals.paid), 'paid to the worker'), stat(money(held), 'still held (not taken)'));
+    if (Number(v.totals.inTransit) > 0) summary.append(h('p', { class: 'small', style: 'grid-column:1/-1;margin:0;color:var(--info)', text: `${money(v.totals.inTransit)} is on its way: PayPal accepted the payout and is settling it.` }));
+    if (Number(v.totals.problem) > 0) summary.append(h('div', { class: 'notice bad', style: 'grid-column:1/-1;margin:0', role: 'alert', text: `${money(v.totals.problem)} of payouts need attention. See the stages below.` }));
     if (v.holdExpiresAt) summary.append(h('p', { class: 'muted small', style: 'grid-column:1/-1;margin:0' }, `Earliest PayPal reservation expires ${fmtDay(v.holdExpiresAt)}. Work must finish before then.`));
 
     const total = Number(v.totals.reserved);
@@ -126,10 +128,7 @@ async function projectPage(id) {
         h('div', { class: 'row between' }, h('h3', { text: `Stage ${s.index + 1}: ${s.title}` }), stageBadge(s.status)),
         h('p', { text: `Must show: ${s.spec}` }),
         h('p', { class: 'muted small', text: `${s.pct}% of the funds${total ? ` (${money(share)} at today's total)` : ''}  |  photo taken ${fmtDay(s.window.from)} to ${fmtDay(s.window.to)}` }),
-        s.release ? h('div', { class: 'notice ok', style: 'margin-top:.5rem' },
-          h('strong', { text: `${money(s.release.payout.amount)} paid to the worker` }),
-          h('ul', { class: 'plain' }, s.release.captures.map((c) => h('li', { text: `${donorOf(c.donation)} contributed ${money(c.amount)}` }))),
-          h('span', { class: 'small', text: `Payout reference ${s.release.payout.batch_id}` })) : null,
+        s.release ? releaseBox(s, donorOf) : null,
         released ? h('img', { class: 'thumb', src: `/api/images/${encodeURIComponent(v.id)}/${encodeURIComponent(released.id)}`, alt: `Verified evidence for stage ${s.index + 1}`, loading: 'lazy' }) : null,
         s.status === 'ACTIVE' && !s.submissions.length ? h('p', { class: 'muted small', style: 'margin-top:.5rem', text: 'Waiting for the worker to submit evidence.' }) : null,
         others.length ? h('ul', { class: 'plain', style: 'margin-top:.6rem' }, others.map((x) => h('li', {}, submissionBadge(x.status), ' ', h('span', { class: 'small muted', text: `${x.id}: ${(x.reasons ?? []).map((r) => explain(r)).join(' ')}` })))) : null));
@@ -148,7 +147,25 @@ async function projectPage(id) {
   setInterval(() => { if (document.visibilityState === 'visible') refresh(); }, 5000);
 }
 
+/** A released stage: paid (PayPal settled it), settling, or a payout problem. */
+function releaseBox(s, donorOf) {
+  const pay = s.release.payout;
+  const state = pay.state ?? 'paid';
+  const tone = { paid: 'ok', pending: 'info', problem: 'bad' }[state];
+  const headline = {
+    paid: `${money(pay.amount)} paid to the worker`,
+    pending: `${money(pay.amount)} sent, waiting for PayPal to settle it`,
+    problem: `${money(pay.amount)} payout needs attention`,
+  }[state];
+  return h('div', { class: `notice ${tone}`, style: 'margin-top:.5rem' },
+    h('strong', { text: headline }),
+    state === 'problem' ? h('p', { class: 'small', style: 'margin:.3rem 0', text: payoutProblemText(pay.status) }) : null,
+    h('ul', { class: 'plain' }, s.release.captures.map((c) => h('li', { text: `${donorOf(c.donation)} contributed ${money(c.amount)}` }))),
+    h('span', { class: 'small', text: `Payout reference ${pay.batch_id}${state === 'paid' ? ', settled' : ''}` }));
+}
+
 function auditLine(e) {
+  if (e.event === 'payout-update') return `Payout for ${e.stage} is now ${e.status}`;
   if (e.event === 'submission') return `Evidence ${e.submission} for ${e.stage}: ${e.decision}${e.reasons?.length ? ` (${e.reasons.join(', ')})` : ''}`;
   if (e.event === 'release') return e.ok ? `Stage ${e.stage} released, payout ${e.payout?.amount}` : `Stage ${e.stage} release failed: ${e.reason}`;
   if (e.event === 'human-decision') return `Verifier ${e.decision}d ${e.submission}`;

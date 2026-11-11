@@ -5,6 +5,7 @@ import { Tollgate } from '../tollgate.js';
 import { Ledger } from '../ledger.js';
 import { auditFor, confirmedDonations } from './project.js';
 import { splitCents, toCents, fromCents } from './money.js';
+import { stateOf } from './payouts.js';
 
 /** Retry once on a dropped connection. Same args means same request id, so PayPal dedupes. */
 async function callWithRetry(gate, tool, args) {
@@ -79,7 +80,8 @@ export async function releaseStage({ project, stage, paypal, clock = () => Date.
   project.paidCents += unpaid;
 
   stage.status = 'RELEASED';
-  stage.release = { captures, payout: { amount: fromCents(unpaid), batch_id: payout.result.batch_id } };
+  const payoutStatus = payout.result.status ?? 'PENDING';
+  stage.release = { captures, payout: { amount: fromCents(unpaid), batch_id: payout.result.batch_id, status: payoutStatus, state: stateOf(payoutStatus) } };
   const upcoming = project.stages[stage.index + 1];
   if (upcoming) upcoming.status = 'ACTIVE';
   return { ok: true, captures, payout: stage.release.payout };

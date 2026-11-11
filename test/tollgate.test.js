@@ -130,3 +130,12 @@ test('audit log detects tampering', async () => {
 test('audit log is empty-safe', () => {
   assert.equal(new AuditLog().verify().ok, true);
 });
+
+test('audit entries are frozen copies: later changes to a passed-in object cannot break the chain', () => {
+  const log = new AuditLog();
+  const payout = { amount: '30.00', state: 'pending' };
+  log.append({ event: 'release', payout });
+  payout.state = 'paid'; // the caller updates its own record afterwards
+  assert.equal(log.entries[0].payout.state, 'pending');
+  assert.equal(log.verify().ok, true);
+});

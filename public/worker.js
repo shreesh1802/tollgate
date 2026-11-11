@@ -98,7 +98,7 @@ async function page() {
     const tone = { RELEASE: 'ok', RESUBMIT: 'warn', HOLD: 'info', BLOCK: 'bad' }[r.decision] ?? 'info';
     clear(result).append(
       h('div', { class: `notice ${tone}`, role: 'status', style: 'margin-top:12px' }, h('strong', { text: outcomeText[r.decision] ?? r.decision }),
-        r.release?.ok ? h('div', { text: `${money(r.release.payout.amount)} was paid out for this stage.` }) : null),
+        r.release?.ok ? h('div', { text: `${money(r.release.payout.amount)} was released and sent to you as a PayPal payout. It can take a few seconds to arrive.` }) : null),
       r.reasons?.length ? h('ul', { class: 'plain' }, r.reasons.map((x) => h('li', { text: `${explain(x)}${x.detail ? ` (${x.detail})` : ''}` }))) : null,
       h('details', { open: r.decision !== 'RELEASE' }, h('summary', { text: 'How this was checked' }), checksTable(r.checks), reviewsList(r.reviews)));
     if (r.decision === 'RELEASE') setTimeout(() => location.reload(), 2500);
