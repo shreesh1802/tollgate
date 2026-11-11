@@ -6,8 +6,12 @@ parts, and pay a worker, all in the PayPal sandbox?**
 ## One-time setup (about 10 minutes)
 
 1. Log in at https://developer.paypal.com/dashboard/ with your PayPal account.
-2. **Testing tools -> Sandbox accounts.** You need three:
-   - a **Business** account (the platform that receives and pays out). A default one usually exists.
+2. **Testing tools -> Sandbox accounts.** You need three, and **all of them should be set to the
+   United States**. (A Business account in some countries, for example India, cannot send
+   Payouts: PayPal answers `PAYOUT_NOT_AVAILABLE`. Donors in other countries can also hit
+   "seller does not accept payments in your currency".)
+   - a **Business** account (the platform that receives and pays out). The default one may be in
+     another country, so check its Country column and create a US one if needed.
    - a **Personal** account for the **donor**.
    - a **Personal** account for the **worker** (note its email).
 3. **Apps & Credentials -> Sandbox -> Create App** (or use the default app), owned by the Business
