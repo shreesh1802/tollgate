@@ -6,4 +6,4 @@ node_modules/
 spike/.state.json
 spike/spike-log.json
 data/
-samples/
+/samples/
