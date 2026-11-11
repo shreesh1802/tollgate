@@ -285,3 +285,15 @@ test('static files: served with a CSP, and path traversal is refused', async () 
     assert.equal((await fetch(`${ctx.base}/nope.html`)).status, 404);
   } finally { await ctx.close(); }
 });
+
+test('donors see how much of their donation has been released', async () => {
+  const ctx = await boot();
+  try {
+    const p = await funded(ctx);
+    const before = (await ctx.api('GET', `/api/projects/${p.id}`)).json.donations;
+    assert.deepEqual(before.map((d) => d.released), ['0.00', '0.00']);
+    await p.upload('S1', photo(0), { qs: `?demoCode=${await p.code('S1')}` });
+    const after = (await ctx.api('GET', `/api/projects/${p.id}`)).json.donations;
+    assert.deepEqual(after.map((d) => d.released), ['18.00', '12.00']); // 30% of each donor's $60 and $40
+  } finally { await ctx.close(); }
+});

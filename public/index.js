@@ -106,7 +106,11 @@ async function projectPage(id) {
     clear(donations).append(v.donations.length
       ? h('div', { class: 'scroll' }, h('table', { class: 'table compact' },
         h('thead', {}, h('tr', {}, h('th', { text: 'Donor' }), h('th', { text: 'Amount' }), h('th', { text: 'Status' }))),
-        h('tbody', {}, v.donations.map((d) => h('tr', {}, h('td', { text: d.donor }), h('td', { text: money(d.amount) }), h('td', {}, donationBadge(d.status)))))))
+        h('tbody', {}, v.donations.map((d) => h('tr', {}, h('td', { text: d.donor }), h('td', { text: money(d.amount) }),
+          h('td', {}, d.status !== 'CONFIRMED' ? donationBadge(d.status)
+            : Number(d.released) >= Number(d.amount) ? h('span', { class: 'badge ok', text: 'Fully released' })
+              : Number(d.released) > 0 ? h('span', { class: 'badge info', text: `${money(d.released)} released` })
+                : donationBadge('CONFIRMED')))))))
       : h('p', { class: 'muted', text: 'No donations yet. Be the first.' }));
   }
 

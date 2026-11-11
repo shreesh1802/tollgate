@@ -64,7 +64,7 @@ function projectView(p, { asWorker = false } = {}) {
     currency: p.currency,
     worker: { name: p.worker.name }, // the payee's email is never published
     site: p.site,
-    donations: p.donations.map((d) => ({ id: d.id, donor: d.donor, amount: d.amount, status: d.status })),
+    donations: p.donations.map((d) => ({ id: d.id, donor: d.donor, amount: d.amount, status: d.status, released: fromCents(d.capturedCents) })),
     totals: { reserved: fromCents(totalReservedCents(p)), captured: fromCents(totalCapturedCents(p)), paid: fromCents(p.paidCents) },
     holdExpiresAt: holdExpiry(p),
     stages: p.stages.map((s) => ({
