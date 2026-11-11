@@ -1,0 +1,651 @@
+openapi: 3.0.3
+info:
+  title: ProofPay API
+  version: 1.0.0
+  description: |
+    ProofPay holds community donations in escrow on PayPal and releases each stage payment
+    only when photo evidence passes deterministic checks plus two independent AI reviewers.
+    Plain code makes the decision; a human verifier handles held cases; every step is written
+    to a hash-chained audit log.
+
+    **Who can call what**
+
+    | Role | How it identifies itself | Can do |
+    |---|---|---|
+    | Anyone | nothing | read projects and the audit log, donate |
+    | Worker | `X-Worker-Key` (returned when the project is created) | upload evidence, see the current one-time code |
+    | Verifier | `X-Verifier-Key` | read the review queue, approve or reject |
+    | Organiser | `X-Organizer-Key` (only if the server sets one) | create projects |
+
+    Money amounts are decimal strings or numbers in the project's currency (USD). The payee's
+    email address is never returned by any endpoint.
+servers:
+  - url: https://proofpay-on99.onrender.com
+    description: Hosted demo (simulated payments, real AI reviewers)
+  - url: http://localhost:3000
+    description: Local server
+tags:
+  - name: Projects
+  - name: Donations
+  - name: Evidence
+  - name: Verification
+  - name: Service
+
+paths:
+  /api/health:
+    get:
+      tags: [Service]
+      operationId: getHealth
+      summary: Liveness check
+      description: '`uptimeSeconds` lets an operator tell a restarting process from a routing problem.'
+      responses:
+        '200':
+          description: The server is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, uptimeSeconds]
+                properties:
+                  ok: { type: boolean, example: true }
+                  uptimeSeconds: { type: integer, example: 3600 }
+
+  /api/config:
+    get:
+      tags: [Service]
+      operationId: getConfig
+      summary: How this server is configured
+      description: Tells a client whether payments are mock or sandbox, whether reviews are simulated, and the upload size limit.
+      responses:
+        '200':
+          description: Server configuration.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [mode, reviewMode, simulatedReviews, maxUploadBytes]
+                properties:
+                  mode: { type: string, enum: [mock, sandbox] }
+                  reviewMode: { type: string, enum: [demo, claude] }
+                  simulatedReviews: { type: boolean }
+                  maxUploadBytes: { type: integer }
+                  vendors: { type: array, items: { type: string } }
+                  demo:
+                    nullable: true
+                    description: Present only on the hosted demo. Contains the demo project and role keys so a visitor can try every role.
+                    type: object
+                    additionalProperties: true
+
+  /api/projects:
+    get:
+      tags: [Projects]
+      operationId: listProjects
+      summary: List projects
+      description: Also refreshes any payouts that PayPal has accepted but not yet settled.
+      responses:
+        '200':
+          description: Every project, in short form.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ProjectSummary' }
+    post:
+      tags: [Projects]
+      operationId: createProject
+      summary: Create a project
+      description: |
+        Stage percentages must add up to 100. Each stage has a time window in which its evidence
+        must be photographed. The response contains the worker key; keep it, it is shown once.
+      security:
+        - {}
+        - OrganizerKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewProject' }
+      responses:
+        '201':
+          description: Project created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, workerKey, workerLink]
+                properties:
+                  id: { type: string }
+                  workerKey: { type: string }
+                  workerLink: { type: string, format: uri, description: A link that opens the worker page already signed in. }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429':
+          description: The hosted demo has reached its project limit.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/projects/{id}:
+    get:
+      tags: [Projects]
+      operationId: getProject
+      summary: Read one project
+      description: |
+        The public view: donations, totals, stages and each stage's submissions. Send
+        `X-Worker-Key` to also receive the one-time code of the active stage.
+      security:
+        - {}
+        - WorkerKey: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: The project.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Project' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/projects/{id}/audit:
+    get:
+      tags: [Projects]
+      operationId: getAuditLog
+      summary: Read the audit log and check its hash chain
+      description: Every decision is an entry that includes the hash of the one before it, so altering history breaks the chain.
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      responses:
+        '200':
+          description: The audit entries and the result of verifying the chain.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [chain, entries]
+                properties:
+                  chain:
+                    type: object
+                    description: Result of re-computing the hash chain.
+                    properties:
+                      ok: { type: boolean }
+                    additionalProperties: true
+                  entries:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/projects/{id}/donations:
+    post:
+      tags: [Donations]
+      operationId: createDonation
+      summary: Reserve a donation on PayPal
+      description: |
+        Creates a PayPal order with intent AUTHORIZE: the money stays in the donor's account and
+        is only reserved. On the sandbox, send the donor to `approveUrl` to approve it; they are
+        then returned to the site and the reservation is confirmed. In mock mode there is no
+        approval step and the donation is confirmed immediately.
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [donor, amount]
+              properties:
+                donor: { type: string, minLength: 1, maxLength: 60, example: Asha }
+                amount: { type: number, minimum: 1, maximum: 1000, multipleOf: 0.01, example: 25 }
+      responses:
+        '201':
+          description: Donation created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [donationId, status]
+                properties:
+                  donationId: { type: string }
+                  status: { $ref: '#/components/schemas/DonationStatus' }
+                  approveUrl:
+                    type: string
+                    format: uri
+                    nullable: true
+                    description: Where the donor approves the reservation. Absent in mock mode.
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/donate/return:
+    get:
+      tags: [Donations]
+      operationId: donationReturn
+      summary: PayPal return link (browser redirect)
+      description: |
+        PayPal sends the donor's browser here after approval with `?token=<order id>`. It confirms
+        the reservation and redirects back to the site. This is not meant to be called by an API client.
+      parameters:
+        - { name: project, in: query, required: true, schema: { type: string } }
+        - { name: donation, in: query, required: true, schema: { type: string } }
+        - { name: token, in: query, required: true, schema: { type: string }, description: The PayPal order id. }
+      responses:
+        '302':
+          description: Redirect to the project page (`donated=1`, or an `error=` value).
+          headers:
+            Location: { schema: { type: string } }
+
+  /api/projects/{id}/stages/{stageId}/submissions:
+    post:
+      tags: [Evidence]
+      operationId: submitEvidence
+      summary: Upload photo evidence for a stage
+      description: |
+        The body is the raw image (JPEG or PNG), not a form. The server checks for duplicates,
+        location and time from the photo's metadata, and that the one-time code is visible, then
+        asks two independent AI reviewers. The deterministic gate decides: RELEASE, RESUBMIT,
+        HOLD (a human decides) or BLOCK. On RELEASE each donor's share is captured and the worker
+        is paid.
+
+        On a demo server with simulated reviewers, `demoCode`, `demoMatch` and `demoFlags` steer
+        the simulated reviewers; they are ignored when real reviewers are used.
+      security:
+        - WorkerKey: []
+      parameters:
+        - $ref: '#/components/parameters/ProjectId'
+        - { name: stageId, in: path, required: true, schema: { type: string } }
+        - { name: demoCode, in: query, required: false, schema: { type: string }, description: Simulated reviewers only. The code they report seeing. }
+        - { name: demoMatch, in: query, required: false, schema: { type: string, enum: ['0', '1'] }, description: Simulated reviewers only. '0' = the photo does not match the stage. }
+        - { name: demoFlags, in: query, required: false, schema: { type: string }, description: Simulated reviewers only. Comma-separated suspicion flags. }
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema: { type: string, format: binary }
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        '200':
+          description: The decision for this submission.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SubmissionResult' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: The stage is not accepting evidence (it is not the active stage).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '413':
+          description: The upload is larger than `maxUploadBytes`.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '415':
+          description: The file is not a JPEG or PNG.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '429':
+          description: The hourly AI review quota has been reached.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /api/images/{projectId}/{subId}:
+    get:
+      tags: [Evidence]
+      operationId: getEvidenceImage
+      summary: Fetch an evidence photo
+      description: Public only after the submission has released funds. Before that, the worker or verifier key is required.
+      security:
+        - {}
+        - WorkerKey: []
+        - VerifierKey: []
+      parameters:
+        - { name: projectId, in: path, required: true, schema: { type: string } }
+        - { name: subId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The photo.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+            image/png:
+              schema: { type: string, format: binary }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/verify/queue:
+    get:
+      tags: [Verification]
+      operationId: getVerifierQueue
+      summary: Submissions waiting for a human
+      description: Submissions the gate held for review, and ones whose payment release failed and needs a retry.
+      security:
+        - VerifierKey: []
+      responses:
+        '200':
+          description: The queue.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/QueueItem' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/verify/{projectId}/{submissionId}:
+    post:
+      tags: [Verification]
+      operationId: decideSubmission
+      summary: Approve or reject a held submission
+      description: |
+        Approval is bound to the evidence the verifier saw: send the `evidenceHash` from the queue
+        item. If the evidence changed since, the call fails with 409 and nothing is released.
+      security:
+        - VerifierKey: []
+      parameters:
+        - { name: projectId, in: path, required: true, schema: { type: string } }
+        - { name: submissionId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [approve, reject] }
+                evidenceHash: { type: string, description: The hash from the queue item. Required to approve. }
+      responses:
+        '200':
+          description: The submission's new status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status: { $ref: '#/components/schemas/SubmissionStatus' }
+                  release: { $ref: '#/components/schemas/Release' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: The submission is not awaiting review, or the evidence changed since it was shown.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '502':
+          description: PayPal returned an error. Nothing was released.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+  securitySchemes:
+    WorkerKey: { type: apiKey, in: header, name: X-Worker-Key }
+    VerifierKey: { type: apiKey, in: header, name: X-Verifier-Key }
+    OrganizerKey: { type: apiKey, in: header, name: X-Organizer-Key }
+
+  parameters:
+    ProjectId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: The request was invalid. The message says what to fix.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Unauthorized:
+      description: A required key is missing or wrong.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    Forbidden:
+      description: The key does not allow this, or the evidence is not public yet.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    NotFound:
+      description: No such project, stage or submission.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string, example: no such project }
+
+    DonationStatus:
+      type: string
+      enum: [AWAITING_APPROVAL, CONFIRMED, FAILED]
+      description: AWAITING_APPROVAL = waiting for the donor at PayPal; CONFIRMED = the money is reserved; FAILED = not approved.
+
+    StageStatus:
+      type: string
+      enum: [PENDING, ACTIVE, RELEASED]
+
+    SubmissionStatus:
+      type: string
+      enum: [RECEIVED, RELEASED, PENDING_REVIEW, RESUBMIT, BLOCKED, REJECTED, RELEASE_FAILED]
+
+    Decision:
+      type: string
+      enum: [RELEASE, RESUBMIT, HOLD, BLOCK]
+
+    Totals:
+      type: object
+      description: Amounts in the project currency. `paid` counts only payouts PayPal has settled.
+      properties:
+        reserved: { type: string, example: '30.00' }
+        captured: { type: string, example: '10.00' }
+        paid: { type: string, example: '10.00' }
+        inTransit: { type: string, example: '0.00' }
+        problem: { type: string, example: '0.00' }
+
+    ProjectSummary:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        totals: { $ref: '#/components/schemas/Totals' }
+        stages:
+          type: array
+          items: { $ref: '#/components/schemas/StageStatus' }
+
+    Site:
+      type: object
+      required: [lat, lon, radiusM]
+      properties:
+        lat: { type: number, minimum: -90, maximum: 90 }
+        lon: { type: number, minimum: -180, maximum: 180 }
+        radiusM: { type: number, minimum: 10, maximum: 5000, description: Photos must be taken within this many metres. }
+
+    TimeWindow:
+      type: object
+      required: [from, to]
+      properties:
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+
+    NewStage:
+      type: object
+      required: [title, spec, pct, window]
+      properties:
+        title: { type: string }
+        spec: { type: string, description: What the photo must show. The AI reviewers judge against this. }
+        pct: { type: integer, minimum: 1, description: Share of the total released at this stage. All stages must sum to 100. }
+        window: { $ref: '#/components/schemas/TimeWindow' }
+
+    NewProject:
+      type: object
+      required: [title, worker, site, stages]
+      properties:
+        title: { type: string, maxLength: 100, example: Repair the village hand pump }
+        worker:
+          type: object
+          required: [name, email]
+          properties:
+            name: { type: string }
+            email: { type: string, format: email, description: The PayPal account that gets paid. Never published. }
+        site: { $ref: '#/components/schemas/Site' }
+        stages:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items: { $ref: '#/components/schemas/NewStage' }
+
+    Donation:
+      type: object
+      properties:
+        id: { type: string }
+        donor: { type: string }
+        amount: { type: number }
+        status: { $ref: '#/components/schemas/DonationStatus' }
+        released: { type: string, description: How much of this donation has been captured so far. }
+
+    Payout:
+      type: object
+      description: The PayPal payout to the worker for a stage. PayPal settles it after accepting it.
+      additionalProperties: true
+      properties:
+        amount: { type: string }
+        status: { type: string, description: PayPal's own payout status (for example PENDING or SUCCESS). }
+
+    Release:
+      type: object
+      properties:
+        ok: { type: boolean }
+        reason: { type: string }
+        payout: { $ref: '#/components/schemas/Payout' }
+        captures:
+          type: array
+          items: { type: object, additionalProperties: true }
+
+    SubmissionSummary:
+      type: object
+      properties:
+        id: { type: string }
+        status: { $ref: '#/components/schemas/SubmissionStatus' }
+        receivedAt: { type: string, format: date-time }
+        decision: { $ref: '#/components/schemas/Decision' }
+        reasons:
+          type: array
+          items: { type: string, description: Rule id such as duplicate-evidence or code-missing. }
+
+    Stage:
+      type: object
+      properties:
+        id: { type: string }
+        index: { type: integer }
+        title: { type: string }
+        spec: { type: string }
+        pct: { type: integer }
+        window: { $ref: '#/components/schemas/TimeWindow' }
+        status: { $ref: '#/components/schemas/StageStatus' }
+        release: { $ref: '#/components/schemas/Release' }
+        releasedAt: { type: string, format: date-time, nullable: true }
+        code: { type: string, description: 'The one-time code to write on paper in the photo. Only returned to the worker, only while the stage is ACTIVE.' }
+        submissions:
+          type: array
+          items: { $ref: '#/components/schemas/SubmissionSummary' }
+
+    Project:
+      type: object
+      properties:
+        id: { type: string }
+        title: { type: string }
+        startedAt: { type: string, format: date-time, nullable: true }
+        currency: { type: string, example: USD }
+        worker:
+          type: object
+          properties:
+            name: { type: string }
+        site: { $ref: '#/components/schemas/Site' }
+        donations:
+          type: array
+          items: { $ref: '#/components/schemas/Donation' }
+        totals: { $ref: '#/components/schemas/Totals' }
+        holdExpiresAt: { type: string, format: date-time, nullable: true, description: When the earliest PayPal reservation lapses. }
+        stages:
+          type: array
+          items: { $ref: '#/components/schemas/Stage' }
+
+    Check:
+      type: object
+      properties:
+        id: { type: string, enum: [duplicate, location, time, code] }
+        status: { type: string, enum: [pass, fail, unknown] }
+        detail: { type: string }
+
+    Review:
+      type: object
+      description: One independent AI reviewer's structured opinion. It advises; it never decides.
+      additionalProperties: true
+      properties:
+        reviewer: { type: string }
+        matchesSpec: { type: boolean }
+        confidence: { type: number, minimum: 0, maximum: 1 }
+        observations: { type: string }
+        visibleCode: { type: string, nullable: true }
+        suspicion: { type: array, items: { type: string } }
+        textInImage: { type: string, nullable: true, description: Text read out of the photo. Treated as data, never as instructions. }
+        error: { type: string }
+
+    SubmissionResult:
+      type: object
+      properties:
+        decision: { $ref: '#/components/schemas/Decision' }
+        status: { $ref: '#/components/schemas/SubmissionStatus' }
+        submissionId: { type: string }
+        reasons:
+          type: array
+          items: { type: object, additionalProperties: true }
+        checks:
+          type: array
+          items: { $ref: '#/components/schemas/Check' }
+        reviews:
+          type: array
+          items: { $ref: '#/components/schemas/Review' }
+        release: { $ref: '#/components/schemas/Release' }
+
+    QueueItem:
+      type: object
+      properties:
+        projectId: { type: string }
+        projectTitle: { type: string }
+        stage:
+          type: object
+          properties:
+            id: { type: string }
+            title: { type: string }
+            spec: { type: string }
+        submission:
+          type: object
+          additionalProperties: true
+          properties:
+            id: { type: string }
+            status: { $ref: '#/components/schemas/SubmissionStatus' }
+            releaseError: { type: string, nullable: true }
+            receivedAt: { type: string, format: date-time }
+            facts: { type: object, additionalProperties: true }
+            reviews:
+              type: array
+              items: { $ref: '#/components/schemas/Review' }
+            reasons:
+              type: array
+              items: { type: object, additionalProperties: true }
+            checks:
+              type: array
+              items: { $ref: '#/components/schemas/Check' }
+        evidenceHash: { type: string }
+        imageUrl: { type: string }

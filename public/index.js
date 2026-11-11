@@ -58,7 +58,7 @@ function proofStrip() {
   const item = (value, label, note) => h('div', { class: 'stat' }, h('div', { class: 'v', text: value }), h('div', { class: 'l' }, h('strong', { text: label }), h('br'), note));
   return h('section', { class: 'proof grid cols-3', 'aria-label': 'Verified results' },
     item('$10.00 \u2192 $10.00', 'Reserved, then paid out', 'A live PayPal sandbox run, confirmed by PayPal itself.'),
-    item('96', 'Automated tests', 'Including fraud, crash, retry and prompt-injection cases.'),
+    item('99', 'Automated tests', 'Including fraud, crash, retry and prompt-injection cases.'),
     item('8 of 8', 'Test photos handled right', 'Honest and fake, judged by real AI agents.'));
 }
 
