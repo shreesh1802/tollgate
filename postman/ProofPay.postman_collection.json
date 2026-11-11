@@ -1,0 +1,1099 @@
+{
+  "info": {
+    "_postman_id": "e7bff135-af92-49d0-96be-453f407dbbbd",
+    "name": "ProofPay",
+    "description": "Runs the ProofPay API end to end (project, worker upload, verifier approval, payout, audit log) and the PayPal sandbox calls it makes (authorize, partial capture, payout).\n\nRun the \"ProofPay API\" folder in order against the hosted demo or your own server (import one of the environments). Request 2 loads the demo credentials automatically. The PayPal folder needs your own PayPal sandbox app credentials and only ever calls the sandbox.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "ProofPay API (run in order)",
+      "item": [
+        {
+          "name": "1. Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"server is up\", () => { pm.response.to.have.status(200); pm.expect(pm.response.json().ok).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "description": "Is the server up? On the free hosted demo the first call after a pause can take about a minute."
+          }
+        },
+        {
+          "name": "2. Config (also loads the demo credentials)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const c = pm.response.json();",
+                  "pm.test(\"config describes the run\", () => { pm.response.to.have.status(200); pm.expect(c.mode).to.be.oneOf([\"mock\", \"sandbox\"]); });",
+                  "if (c.demo) { pm.collectionVariables.set(\"projectId\", c.demo.projectId); pm.collectionVariables.set(\"workerKey\", c.demo.workerKey); pm.collectionVariables.set(\"verifierKey\", c.demo.verifierKey); }",
+                  "pm.test(\"demo credentials are available\", () => pm.expect(pm.collectionVariables.get(\"projectId\")).to.be.a(\"string\").and.not.empty);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/config",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "config"
+              ]
+            },
+            "description": "In demo mode the server publishes the demo project id, worker key and verifier key so a visitor needs nothing else. This request saves them into the collection variables."
+          }
+        },
+        {
+          "name": "3. List projects",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"lists projects with totals\", () => { pm.response.to.have.status(200); const p = pm.response.json(); pm.expect(p).to.be.an(\"array\").that.is.not.empty; pm.expect(p[0].totals).to.have.property(\"reserved\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Project, as a donor sees it",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const v = pm.response.json();",
+                  "pm.test(\"public view hides the worker email and codes\", () => { pm.response.to.have.status(200); pm.expect(JSON.stringify(v)).to.not.include(\"@\"); pm.expect(v.stages.every(s => s.code === undefined)).to.eql(true); });",
+                  "const active = v.stages.find(s => s.status === \"ACTIVE\");",
+                  "pm.test(\"there is an active stage (re-seed the demo if every stage is already paid)\", () => pm.expect(active).to.be.an(\"object\"));",
+                  "if (active) pm.collectionVariables.set(\"stageId\", active.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}"
+              ]
+            },
+            "description": "Public view: stages, payments and donors. It never includes the worker's email or the one-time codes."
+          }
+        },
+        {
+          "name": "5. Project, as the worker (shows the one-time code)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const active = pm.response.json().stages.find(s => s.status === \"ACTIVE\");",
+                  "pm.test(\"the worker sees the active stage's one-time code\", () => pm.expect(active.code).to.match(/^[0-9A-Za-z]{4}$/));",
+                  "pm.collectionVariables.set(\"stageCode\", active.code);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-worker-key",
+                "value": "{{workerKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. Worker uploads evidence for the active stage",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "pm.test(\"evidence was checked and a decision made\", () => { pm.response.to.have.status(200); pm.expect(r.decision).to.be.oneOf([\"RELEASE\", \"HOLD\", \"RESUBMIT\", \"BLOCK\"]); });",
+                  "pm.test(\"every check reports a result\", () => pm.expect(r.checks.map(c => c.id)).to.have.members([\"duplicate\", \"location\", \"time\", \"code\"]));",
+                  "pm.test(\"two reviewers looked at it\", () => pm.expect(r.reviews).to.have.lengthOf(2));",
+                  "pm.collectionVariables.set(\"submissionId\", r.submissionId);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-worker-key",
+                "value": "{{workerKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/octet-stream"
+              }
+            ],
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": "public/samples/stage1_before.png"
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}/stages/{{stageId}}/submissions?demoCode={{stageCode}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}",
+                "stages",
+                "{{stageId}}",
+                "submissions"
+              ]
+            },
+            "description": "Uploads a photo (JPEG or PNG, up to 5 MB). Send the Stage 1 sample from public/samples for stage 1, the Stage 2 sample for stage 2, and so on. `demoCode` is only used when the photo reviewers are simulated. A PNG carries no location data, so a human verifier has to approve it (next requests)."
+          }
+        },
+        {
+          "name": "7. Verifier queue",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const q = pm.response.json();",
+                  "pm.test(\"queue is readable with the verifier key\", () => pm.response.to.have.status(200));",
+                  "const item = q.find(i => i.submission.id === pm.collectionVariables.get(\"submissionId\"));",
+                  "pm.test(\"the held submission is in the queue (skip steps 7-8 if step 6 released it automatically)\", () => pm.expect(item).to.be.an(\"object\"));",
+                  "if (item) pm.collectionVariables.set(\"evidenceHash\", item.evidenceHash);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-verifier-key",
+                "value": "{{verifierKey}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/verify/queue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "verify",
+                "queue"
+              ]
+            },
+            "description": "Cases the automatic checks could not settle. Each carries an evidence hash: an approval only works for exactly that evidence."
+          }
+        },
+        {
+          "name": "7b. Verifier queue without the key is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"401 without the verifier key\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/verify/queue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "verify",
+                "queue"
+              ]
+            }
+          }
+        },
+        {
+          "name": "8a. Approval with the WRONG evidence hash is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"an approval is bound to the exact evidence\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-verifier-key",
+                "value": "{{verifierKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approve\",\n  \"evidenceHash\": \"not-the-real-hash\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/verify/{{projectId}}/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "verify",
+                "{{projectId}}",
+                "{{submissionId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "8b. Verifier approves (releases the stage payment)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const r = pm.response.json();",
+                  "pm.test(\"released, with a payout\", () => { pm.response.to.have.status(200); pm.expect(r.status).to.eql(\"RELEASED\"); pm.expect(r.release.ok).to.eql(true); pm.expect(Number(r.release.payout.amount)).to.be.above(0); });",
+                  "pm.test(\"each donor gave their exact share\", () => pm.expect(r.release.captures.length).to.be.above(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-verifier-key",
+                "value": "{{verifierKey}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"decision\": \"approve\",\n  \"evidenceHash\": \"{{evidenceHash}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/verify/{{projectId}}/{{submissionId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "verify",
+                "{{projectId}}",
+                "{{submissionId}}"
+              ]
+            },
+            "description": "Captures this stage's share from every donor's reservation, then pays the worker."
+          }
+        },
+        {
+          "name": "9. Project after the release",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const v = pm.response.json();",
+                  "pm.test(\"the stage is released and money has moved\", () => { pm.expect(v.stages.some(s => s.status === \"RELEASED\")).to.eql(true); pm.expect(Number(v.totals.captured)).to.be.above(0); });",
+                  "pm.test(\"paid never exceeds what donors reserved\", () => pm.expect(Number(v.totals.paid) + Number(v.totals.inTransit)).to.be.at.most(Number(v.totals.reserved)));",
+                  "const next = v.stages.find(s => s.status === \"ACTIVE\"); if (next) pm.collectionVariables.set(\"stageId\", next.id); // the following requests use the next open stage"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "10. Audit log (hash chain)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const a = pm.response.json();",
+                  "pm.test(\"the chain verifies\", () => { pm.expect(a.chain.ok).to.eql(true); pm.expect(a.entries.length).to.be.above(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}/audit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}",
+                "audit"
+              ]
+            },
+            "description": "Every decision and payment, chained by hash. Editing any entry would break the chain."
+          }
+        },
+        {
+          "name": "11a. Wrong worker key is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"403 without the right worker key\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-worker-key",
+                "value": "wrong"
+              },
+              {
+                "key": "content-type",
+                "value": "application/octet-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "x"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}/stages/S1/submissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}",
+                "stages",
+                "S1",
+                "submissions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "11b. A file that is not an image is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"only JPEG and PNG are accepted (415; 409 only if every stage is already paid)\", () => pm.expect(pm.response.code).to.be.oneOf([415, 409]));",
+                  "if (pm.collectionVariables.get(\"stageId\") !== \"\") pm.test(\"the next stage is open, so this reached the file check\", () => pm.expect(pm.response.code).to.eql(415));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-worker-key",
+                "value": "{{workerKey}}"
+              },
+              {
+                "key": "content-type",
+                "value": "application/octet-stream"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "definitely not an image"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects/{{projectId}}/stages/{{stageId}}/submissions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects",
+                "{{projectId}}",
+                "stages",
+                "{{stageId}}",
+                "submissions"
+              ]
+            }
+          }
+        },
+        {
+          "name": "12. Creating a project validates its input",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"bad input is a 400, never a 500\", () => pm.expect(pm.response.code).to.be.oneOf([400, 401, 429]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "content-type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"\",\n  \"worker\": {\n    \"name\": \"x\",\n    \"email\": \"not-an-email\"\n  },\n  \"site\": {\n    \"lat\": 0,\n    \"lon\": 0,\n    \"radiusM\": 100\n  },\n  \"stages\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/projects",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "projects"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "PayPal sandbox (what the app calls)",
+      "item": [
+        {
+          "name": "P1. Get an access token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"token issued\", () => { pm.response.to.have.status(200); pm.collectionVariables.set(\"paypalToken\", pm.response.json().access_token); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "client_credentials"
+                }
+              ]
+            },
+            "url": {
+              "raw": "https://api-m.sandbox.paypal.com/v1/oauth2/token",
+              "host": [
+                "api-m.sandbox.paypal.com"
+              ],
+              "protocol": "https",
+              "path": [
+                "v1",
+                "oauth2",
+                "token"
+              ]
+            },
+            "description": "Needs your own sandbox app credentials in the environment (paypalClientId and paypalClientSecret). The sandbox base URL is the only one used here.",
+            "auth": {
+              "type": "basic",
+              "basic": [
+                {
+                  "key": "username",
+                  "value": "{{paypalClientId}}",
+                  "type": "string"
+                },
+                {
+                  "key": "password",
+                  "value": "{{paypalClientSecret}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "P2. Create a donation order (AUTHORIZE)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const o = pm.response.json();",
+                  "pm.test(\"order created, waiting for the donor\", () => { pm.response.to.have.status(201); pm.expect(o.status).to.eql(\"PAYER_ACTION_REQUIRED\"); });",
+                  "pm.collectionVariables.set(\"orderId\", o.id);",
+                  "console.log(\"Approve this link as a sandbox donor:\", (o.links.find(l => [\"payer-action\", \"approve\"].includes(l.rel)) || {}).href);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "PayPal-Request-Id",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intent\": \"AUTHORIZE\",\n  \"purchase_units\": [\n    {\n      \"amount\": {\n        \"currency_code\": \"USD\",\n        \"value\": \"10.00\"\n      },\n      \"description\": \"ProofPay donation\"\n    }\n  ],\n  \"payment_source\": {\n    \"paypal\": {\n      \"experience_context\": {\n        \"return_url\": \"https://example.com/return\",\n        \"cancel_url\": \"https://example.com/cancel\",\n        \"user_action\": \"PAY_NOW\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api-m.sandbox.paypal.com/v2/checkout/orders",
+              "host": [
+                "api-m.sandbox.paypal.com"
+              ],
+              "protocol": "https",
+              "path": [
+                "v2",
+                "checkout",
+                "orders"
+              ]
+            },
+            "description": "Reserves nothing yet. Open the payer-action link from the response in a browser and approve as a sandbox donor, then run P3.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "P3. Authorize the approved order (reserve the money)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const a = pm.response.json().purchase_units[0].payments.authorizations[0];",
+                  "pm.test(\"reserved, not taken\", () => { pm.response.to.have.status(201); pm.expect(a.status).to.eql(\"CREATED\"); });",
+                  "pm.collectionVariables.set(\"authorizationId\", a.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "PayPal-Request-Id",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "https://api-m.sandbox.paypal.com/v2/checkout/orders/{{orderId}}/authorize",
+              "host": [
+                "api-m.sandbox.paypal.com"
+              ],
+              "protocol": "https",
+              "path": [
+                "v2",
+                "checkout",
+                "orders",
+                "%7B%7BorderId%7D%7D",
+                "authorize"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "P4. Capture part of the reservation (final_capture: false)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"captured\", () => { pm.response.to.have.status(201); pm.expect(pm.response.json().status).to.be.oneOf([\"COMPLETED\", \"PENDING\"]); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "PayPal-Request-Id",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": {\n    \"currency_code\": \"USD\",\n    \"value\": \"4.00\"\n  },\n  \"final_capture\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api-m.sandbox.paypal.com/v2/payments/authorizations/{{authorizationId}}/capture",
+              "host": [
+                "api-m.sandbox.paypal.com"
+              ],
+              "protocol": "https",
+              "path": [
+                "v2",
+                "payments",
+                "authorizations",
+                "%7B%7BauthorizationId%7D%7D",
+                "capture"
+              ]
+            },
+            "description": "This is how one stage releases a slice of a donor's reservation.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "P5. Capture the rest (final_capture: true)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"captured\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "PayPal-Request-Id",
+                "value": "{{$guid}}"
+              },
+              {
+                "key": "Prefer",
+                "value": "return=representation"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": {\n    \"currency_code\": \"USD\",\n    \"value\": \"6.00\"\n  },\n  \"final_capture\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api-m.sandbox.paypal.com/v2/payments/authorizations/{{authorizationId}}/capture",
+              "host": [
+                "api-m.sandbox.paypal.com"
+              ],
+              "protocol": "https",
+              "path": [
+                "v2",
+                "payments",
+                "authorizations",
+                "%7B%7BauthorizationId%7D%7D",
+                "capture"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "P6. Look at the reservation",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"fully captured after P4 and P5\", () => pm.expect(pm.response.json().status).to.be.oneOf([\"CAPTURED\", \"PARTIALLY_CAPTURED\"]));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api-m.sandbox.paypal.com/v2/payments/authorizations/{{authorizationId}}",
+              "host": [
+                "api-m.sandbox.paypal.com"
+              ],
+              "protocol": "https",
+              "path": [
+                "v2",
+                "payments",
+                "authorizations",
+                "%7B%7BauthorizationId%7D%7D"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "P7. Pay the worker (Payouts)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const b = pm.response.json().batch_header;",
+                  "pm.test(\"payout accepted\", () => { pm.response.to.have.status(201); pm.expect(b.batch_status).to.be.oneOf([\"PENDING\", \"PROCESSING\", \"SUCCESS\"]); });",
+                  "pm.collectionVariables.set(\"payoutBatchId\", b.payout_batch_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "PayPal-Request-Id",
+                "value": "{{$guid}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sender_batch_header\": {\n    \"sender_batch_id\": \"postman-{{$timestamp}}\",\n    \"email_subject\": \"ProofPay stage payment\"\n  },\n  \"items\": [\n    {\n      \"recipient_type\": \"EMAIL\",\n      \"receiver\": \"{{workerEmail}}\",\n      \"amount\": {\n        \"value\": \"3.00\",\n        \"currency\": \"USD\"\n      },\n      \"note\": \"ProofPay\",\n      \"sender_item_id\": \"item-{{$timestamp}}\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "https://api-m.sandbox.paypal.com/v1/payments/payouts",
+              "host": [
+                "api-m.sandbox.paypal.com"
+              ],
+              "protocol": "https",
+              "path": [
+                "v1",
+                "payments",
+                "payouts"
+              ]
+            },
+            "description": "Needs a US-based sandbox Business account as the sender (otherwise PAYOUT_NOT_AVAILABLE) and a sandbox Personal account email as workerEmail.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "P8. Check the payout settled",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"payout found\", () => { pm.response.to.have.status(200); console.log(\"item status:\", pm.response.json().items.map(i => i.transaction_status).join(\", \")); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "https://api-m.sandbox.paypal.com/v1/payments/payouts/{{payoutBatchId}}",
+              "host": [
+                "api-m.sandbox.paypal.com"
+              ],
+              "protocol": "https",
+              "path": [
+                "v1",
+                "payments",
+                "payouts",
+                "%7B%7BpayoutBatchId%7D%7D"
+              ]
+            },
+            "description": "A payout is accepted first and settles a few seconds later. Run this again until the item says SUCCESS.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "default"
+    },
+    {
+      "key": "projectId",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "workerKey",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "verifierKey",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "stageId",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "stageCode",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "submissionId",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "evidenceHash",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "workerEmail",
+      "value": "sb-your-worker@personal.example.com",
+      "type": "default"
+    },
+    {
+      "key": "paypalClientId",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "paypalClientSecret",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "paypalToken",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "orderId",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "authorizationId",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "payoutBatchId",
+      "value": "",
+      "type": "default"
+    }
+  ]
+}

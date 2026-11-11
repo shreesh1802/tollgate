@@ -14,7 +14,8 @@
     "spike": "node --env-file=.env spike/paypal-spike.js",
     "start": "node src/server/main.js",
     "start:demo": "node src/server/main.js --seed",
-    "eval:vision": "node harness/eval-vision.js"
+    "eval:vision": "node harness/eval-vision.js",
+    "test:api": "npx --yes newman run postman/ProofPay.postman_collection.json --folder \"ProofPay API (run in order)\" --env-var baseUrl=http://localhost:3000 --working-dir ."
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

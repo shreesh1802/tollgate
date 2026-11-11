@@ -257,6 +257,7 @@ then follow `spike/README.md` (authorize, partial captures, payout).
 | `npm run eval:vision -- --yes` | runs the real reviewers on those photos | cents |
 | `npm run eval:claude` | dry plan of the original agent-injection test on a real model | free |
 | `npm run spike -- <step>` | step-by-step PayPal sandbox check | free |
+| `npm run test:api` | runs the Postman collection (15 requests, 23 assertions) against a local demo server | free |
 
 ---
 
@@ -332,6 +333,9 @@ results/         recorded evaluation outputs
   bundle carries a watermark and is never committed to this repo, it is installed from npm.
   If it is not installed or fails to start, the page simply shows the plain stage list instead.
 - **Anthropic Claude** (vision) as the two photo reviewers. The default model is `claude-haiku-5-5`.
+- **Postman**: a collection in [`postman/`](postman/) that runs the whole API end to end and replays the PayPal
+  sandbox calls, with two ready-made environments (local and the hosted demo). It also runs headless with Newman.
+- **Slack** (optional): an incoming webhook that tells the verifier when a case is held.
 - **Node.js**, with four runtime dependencies: `@anthropic-ai/sdk`, `exifr` (EXIF reading),
   `jpeg-js` and `pngjs` (image decoding for the perceptual hash), plus the AG Grid and AG Charts
   community packages. The Bryntum trial package is about 50 MB; skip it with
