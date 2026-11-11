@@ -124,7 +124,7 @@ Results: [`results/vision-claude-haiku-5-5.json`](results/vision-claude-haiku-5-
 
 ### Automated tests (`npm test`)
 
-80 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
+82 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
 image text, human approval bound to evidence, crash and retry safety, provider failures during
 release, restart recovery, payout settlement (pending, paid, failed), access control, upload limits, concurrency (two simultaneous uploads
 release a stage exactly once), the donation return flow, and the real PayPal adapter against a
@@ -179,6 +179,18 @@ Walkthrough:
 For a fully automatic release, create a project on the **New project** page at your own
 coordinates and upload a phone photo taken there with location tagging on.
 
+The home page shows a **"Try it in two minutes" guide** with links for each role (donor, worker,
+verifier) and the verifier key, so nothing needs to be copied from the log.
+
+### Host it on Render
+
+`render.yaml` is a Render Blueprint. In the Render dashboard choose **New > Blueprint**, select this
+repository, and enter `ANTHROPIC_API_KEY` when asked. The hosted demo runs a **mock PayPal** with
+**real Claude reviewers**: visitors need no keys, the API key stays on the server, model use is
+capped (`MAX_REVIEWS_PER_HOUR`), and the number of projects is capped (`MAX_PROJECTS`). The free
+plan sleeps when idle (the first request after a pause takes a while) and wipes its disk on each
+deploy, so the demo project is re-created at every start.
+
 ### Run it with real PayPal and real AI
 
 You need a PayPal developer account with a **US-based sandbox Business account** (Payouts is not
@@ -222,6 +234,7 @@ then follow `spike/README.md` (authorize, partial captures, payout).
 | `VERIFIER_KEY` | random per run | key for the verifier page |
 | `ORGANIZER_KEY` | none | if set, required to create projects |
 | `MAX_REVIEWS_PER_HOUR` | `60` | caps model-backed reviews to protect an API budget |
+| `MAX_PROJECTS` | unlimited | caps how many projects can exist (set on public demos) |
 
 ### Other commands
 
@@ -289,7 +302,7 @@ public/          the web UI (plain HTML, CSS and ES modules, no build step); ven
 harness/         judge-check, real-model evals
 corpus/          the 14 attacks and 7 normal tasks for the agent-guard harness
 spike/           step-by-step PayPal sandbox script
-test/            80 tests
+test/            82 tests
 results/         recorded evaluation outputs
 ```
 

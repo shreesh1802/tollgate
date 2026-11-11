@@ -16,6 +16,7 @@ async function listPage() {
       h('h1', { text: 'Pay for the work after it is proven.' }),
       h('p', { class: 'pitch', text: 'Neighbours pool money to fix what is broken. Every donation is reserved on PayPal and released in stages, only when photo evidence passes checks that an AI opinion alone can never override.' })),
   );
+  if (cfg.demo) app.append(demoGuide(cfg));
   let projects;
   try { projects = await api('GET', '/api/projects'); } catch (e) { return showError(app, e); }
   if (!projects.length) {
@@ -30,6 +31,22 @@ async function listPage() {
       h('div', { class: 'progress', role: 'progressbar', 'aria-valuenow': done, 'aria-valuemin': 0, 'aria-valuemax': p.stages.length }, h('i', { style: `width:${(done / p.stages.length) * 100}%` })),
       h('p', { class: 'small muted', style: 'margin-top:.6rem', text: `${money(p.totals.reserved)} reserved  |  ${money(p.totals.paid)} paid out` }));
   })));
+}
+
+/** Demo mode only: everything a visitor needs to try all three roles, without any server log. */
+function demoGuide(cfg) {
+  const d = cfg.demo;
+  const step = (_n, title, body) => h('li', { style: 'margin-bottom:.6rem' }, h('strong', { text: `${title} ` }), body);
+  return h('section', { class: 'card', style: 'margin-bottom:16px', 'aria-labelledby': 'tryit' },
+    h('div', { class: 'row between' }, h('h2', { id: 'tryit', text: 'Try it in two minutes' }), h('span', { class: 'badge warn', text: 'Demo mode: test money only' })),
+    h('p', { class: 'muted small', text: cfg.simulatedReviews
+      ? 'Payments and photo reviews are simulated in this run. Everything after the reviewers (checks, release gate, splitting, audit log) is the real code.'
+      : 'Payments are simulated. Two real Claude reviewers judge your photos, so upload something that shows the stage.' }),
+    h('ol', { style: 'padding-left:1.1rem;margin:.6rem 0 0' },
+      step(1, 'See the project.', h('a', { href: `/?project=${encodeURIComponent(d.projectId)}`, text: 'Open the donor page' })),
+      step(2, 'Act as the worker.', [h('a', { href: `/worker.html?project=${encodeURIComponent(d.projectId)}&key=${encodeURIComponent(d.workerKey)}`, text: 'Open the worker page' }), ' and upload any JPEG or PNG. A photo without location data is sent to a human, which is the next step.']),
+      step(3, 'Act as the verifier.', [h('a', { href: `/verify.html?key=${encodeURIComponent(d.verifierKey)}`, text: 'Open the verifier queue' }), ' and approve. The stage payment is split across both donors and the donor page updates.']),
+      step(4, 'Try to cheat.', 'Upload the same photo again for the next stage (blocked as a duplicate), or photograph a screen showing a pump.')));
 }
 
 // ---------------------------------------------------------------- one project

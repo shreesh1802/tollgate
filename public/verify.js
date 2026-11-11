@@ -4,6 +4,9 @@ const app = document.getElementById('app');
 await chrome('verify');
 const KEY = 'pp-verifier-key';
 const stored = () => sessionStorage.getItem(KEY);
+// The demo guide links here with ?key=... so a visitor does not have to copy it. Keep it out of the address bar.
+const linked = new URLSearchParams(location.search).get('key');
+if (linked) { sessionStorage.setItem(KEY, linked); history.replaceState(null, '', location.pathname); }
 
 const queue = h('div', { class: 'stack' });
 const keyIn = h('input', { id: 'vkey', type: 'password', autocomplete: 'off', placeholder: 'Verifier key', value: stored() ?? '' });

@@ -395,3 +395,22 @@ test('the project view carries release times and a start time for the timeline',
     assert.equal(v.stages[0].releasedAt, new Date(NOW).toISOString());
   } finally { await ctx.close(); }
 });
+
+// ---- demo mode and public-demo limits ----
+
+test('demo details are only published when demo mode is on', async () => {
+  const off = await boot();
+  try { assert.equal((await off.api('GET', '/api/config')).json.demo, null); } finally { await off.close(); }
+  const on = await boot({ app: { demo: { projectId: 'P-1', workerKey: 'wk', verifierKey: 'vk' } } });
+  try { assert.deepEqual((await on.api('GET', '/api/config')).json.demo, { projectId: 'P-1', workerKey: 'wk', verifierKey: 'vk' }); } finally { await on.close(); }
+});
+
+test('a public demo can cap how many projects exist', async () => {
+  const ctx = await boot({ app: { maxProjects: 1 } });
+  try {
+    assert.equal((await ctx.api('POST', '/api/projects', { body: PROJECT })).status, 201);
+    const second = await ctx.api('POST', '/api/projects', { body: PROJECT });
+    assert.equal(second.status, 429);
+    assert.match(second.json.error, /project limit/);
+  } finally { await ctx.close(); }
+});

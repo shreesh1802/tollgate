@@ -20,7 +20,7 @@ const port = Number(env.PORT ?? 3000);
 const mode = env.MODE ?? 'mock';
 const reviewMode = env.REVIEWERS ?? 'demo';
 const dataDir = path.resolve(env.DATA_DIR ?? path.join(root, 'data'));
-const publicUrl = env.PUBLIC_URL ?? `http://localhost:${port}`;
+const publicUrl = env.PUBLIC_URL ?? env.RENDER_EXTERNAL_URL ?? `http://localhost:${port}`; // Render sets RENDER_EXTERNAL_URL
 const verifierKey = env.VERIFIER_KEY ?? randomBytes(9).toString('hex');
 
 if (!['mock', 'sandbox'].includes(mode)) throw new Error('MODE must be mock or sandbox');
@@ -56,8 +56,14 @@ if (wantSeed && mode === 'mock' && store.list().length === 0) {
   console.log(`seeded demo project ${p.id}\n  worker link: ${publicUrl}/worker.html?project=${p.id}&key=${p.workerKey}`);
 }
 
+// Demo mode (mock PayPal, seeded project): the home page shows a guide with the worker link and
+// verifier key so a visitor needs nothing from the server log. Never enabled with real PayPal.
+const demoProject = wantSeed && mode === 'mock' ? store.list().find((p) => p.workerKey) : null;
+const demo = demoProject ? { projectId: demoProject.id, workerKey: demoProject.workerKey, verifierKey } : null;
+
 const app = createApp({
-  store, paypal, reviewers, reviewMode, mode, publicUrl, verifierKey,
+  store, paypal, reviewers, reviewMode, mode, publicUrl, verifierKey, demo,
+  maxProjects: Number(env.MAX_PROJECTS ?? 0),
   organizerKey: env.ORGANIZER_KEY ?? null,
   uploadsDir: path.join(dataDir, 'uploads'),
   staticDir: path.join(root, 'public'),

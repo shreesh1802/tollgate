@@ -127,6 +127,8 @@ export function createApp({
   store, paypal, reviewers, reviewMode = 'demo', mode = 'mock', publicUrl, verifierKey, organizerKey = null,
   uploadsDir, staticDir = null, clock = () => Date.now(), maxReviewsPerHour = 60, payoutCheckIntervalMs = 4000,
   vendor = {}, // { '/vendor/name/': absoluteDirectory } third-party UI bundles served straight from node_modules
+  demo = null, // { projectId, workerKey, verifierKey } shown on the home page in demo mode only
+  maxProjects = 0, // 0 = unlimited; set on a public demo so it cannot be filled with projects
 }) {
   const routes = [];
   const route = (method, pattern, handler) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), handler });
@@ -163,7 +165,7 @@ export function createApp({
 
   route('GET', '/api/health', async () => json({ ok: true }));
   const vendors = Object.fromEntries(Object.entries(vendor).filter(([, dir]) => existsSync(dir)));
-  route('GET', '/api/config', async () => json({ mode, reviewMode, simulatedReviews: reviewMode === 'demo', maxUploadBytes: MAX_BYTES, vendors: Object.keys(vendors) }));
+  route('GET', '/api/config', async () => json({ mode, reviewMode, simulatedReviews: reviewMode === 'demo', maxUploadBytes: MAX_BYTES, vendors: Object.keys(vendors), demo }));
 
   // Payouts settle after PayPal accepts them, so reading a project also checks any pending ones.
   const settle = async (id) => {
@@ -186,6 +188,7 @@ export function createApp({
 
   route('POST', '/api/projects', async ({ req }) => {
     if (organizerKey && !safeEqual(req.headers['x-organizer-key'], organizerKey)) throw new HttpError(401, 'organizer key required');
+    if (maxProjects && store.list().length >= maxProjects) throw new HttpError(429, 'this demo has reached its project limit');
     const b = await readJson(req);
     const bad = (m) => { throw new HttpError(400, m); };
     if (typeof b.title !== 'string' || !b.title.trim() || b.title.length > 100) bad('title is required (max 100 characters)');

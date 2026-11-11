@@ -1,0 +1,32 @@
+# Render Blueprint: one-click hosted demo. In the Render dashboard choose
+# New > Blueprint, pick this repository, and set ANTHROPIC_API_KEY when asked.
+#
+# The hosted demo runs a MOCK PayPal (no real or sandbox payments) with REAL Claude photo
+# reviewers, so judges can try everything without any keys of their own. The API key stays on
+# the server and model use is rate limited. The free plan sleeps when idle and its disk is
+# wiped on every deploy, so the demo project is re-seeded at each start.
+services:
+  - type: web
+    name: proofpay
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm run start:demo
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: MODE
+        value: mock
+      - key: REVIEWERS
+        value: claude
+      - key: ANTHROPIC_API_KEY
+        sync: false # entered in the dashboard, never stored in this file
+      - key: VERIFIER_KEY
+        generateValue: true # the home page shows it to visitors in demo mode
+      - key: MAX_REVIEWS_PER_HOUR
+        value: "40" # caps model spend
+      - key: MAX_PROJECTS
+        value: "25" # a public demo cannot be filled with projects
+      - key: DATA_DIR
+        value: /tmp/proofpay
