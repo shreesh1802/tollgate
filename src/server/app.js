@@ -163,7 +163,8 @@ export function createApp({
     auditFor(project, clock).append({ event: 'donation-confirmed', donation: d.id, amount: d.amount });
   }
 
-  route('GET', '/api/health', async () => json({ ok: true }));
+  // uptimeSeconds lets an operator tell a restarting process (small, resetting) from a routing problem.
+  route('GET', '/api/health', async () => json({ ok: true, uptimeSeconds: Math.round(process.uptime()) }));
   const vendors = Object.fromEntries(Object.entries(vendor).filter(([, dir]) => existsSync(dir)));
   route('GET', '/api/config', async () => json({ mode, reviewMode, simulatedReviews: reviewMode === 'demo', maxUploadBytes: MAX_BYTES, vendors: Object.keys(vendors), demo }));
 

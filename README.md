@@ -14,7 +14,7 @@ the next payment. An AI opinion alone can never release money.
 | | |
 |---|---|
 | Demo video (under 3 min) | _link added at submission_ |
-| Hosted demo | _link added at submission_ |
+| Hosted demo (mock PayPal, real Claude reviewers) | https://proofpay-on99.onrender.com |
 | Run it yourself, no keys needed | [Quick start](#quick-start) |
 | License | MIT |
 
