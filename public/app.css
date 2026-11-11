@@ -1,23 +1,33 @@
 /* Atkinson Hyperlegible: designed by the Braille Institute for legibility. Self-hosted, with system fonts as the fallback. */
 @font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 400; font-display: swap; src: url("/vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); }
 @font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 700; font-display: swap; src: url("/vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2"); }
+/* Soft earthy theme: warm cream and light brown, with sage/olive green as the brand. All text pairs meet WCAG AA (4.5:1). */
 :root {
-  --bg: #f4f6f9; --card: #ffffff; --ink: #14202b; --muted: #556575; --line: #dfe5eb;
-  --brand: #0b5cd5; --brand-ink: #ffffff; --brand-soft: #e6efff;
-  --ok: #0f7a55; --ok-bg: #e1f5ec; --warn: #8a5300; --warn-bg: #fff1d1;
-  --bad: #b3261e; --bad-bg: #fde7e5; --info: #1f4fc4; --info-bg: #e6edff;
-  --radius: 14px; --shadow: 0 1px 2px rgba(20, 32, 43, 0.06), 0 6px 20px rgba(20, 32, 43, 0.05);
-  color-scheme: light dark;
+  --bg: #f5efe3; --card: #fffcf6; --ink: #2e2a22; --muted: #665a49; --line: #e2d6c2;
+  --brand: #4e6a2c; --brand-ink: #ffffff; --brand-soft: #e6ebd4; --accent: #8a5426;
+  --ok: #2f6a2e; --ok-bg: #e2eed5; --warn: #7a5200; --warn-bg: #f7e8c4;
+  --bad: #9b3a2b; --bad-bg: #f5ded6; --info: #35606f; --info-bg: #ddeaee;
+  --radius: 14px; --shadow: 0 1px 2px rgba(90, 65, 30, 0.07), 0 6px 20px rgba(90, 65, 30, 0.06);
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --bg: #1f1b16; --card: #2a251e; --ink: #f1e8d8; --muted: #bfaf99; --line: #3e362b;
+  --brand: #a9c77b; --brand-ink: #1b2410; --brand-soft: #2f3a22; --accent: #dda573;
+  --ok: #aad78f; --ok-bg: #263420; --warn: #e8c27a; --warn-bg: #3a2e14;
+  --bad: #f0a99b; --bad-bg: #40231e; --info: #a5cbd8; --info-bg: #1f343b;
+  --shadow: none; color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0e151d; --card: #16202b; --ink: #e8eef4; --muted: #9fb1c1; --line: #263543;
-    --brand: #5ea0ff; --brand-ink: #06121f; --brand-soft: #172a45;
-    --ok: #5dd3a4; --ok-bg: #123226; --warn: #f2bf62; --warn-bg: #3a2c0d;
-    --bad: #ff9a92; --bad-bg: #3d1a18; --info: #93b4ff; --info-bg: #17284a;
-    --shadow: none;
+  :root:not([data-theme="light"]) {
+    --bg: #1f1b16; --card: #2a251e; --ink: #f1e8d8; --muted: #bfaf99; --line: #3e362b;
+    --brand: #a9c77b; --brand-ink: #1b2410; --brand-soft: #2f3a22; --accent: #dda573;
+    --ok: #aad78f; --ok-bg: #263420; --warn: #e8c27a; --warn-bg: #3a2e14;
+    --bad: #f0a99b; --bad-bg: #40231e; --info: #a5cbd8; --info-bg: #1f343b;
+    --shadow: none; color-scheme: dark;
   }
 }
+.theme-toggle { background: transparent; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 0 14px; min-height: 44px; font: inherit; cursor: pointer; }
+.theme-toggle:hover { background: var(--brand-soft); }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
@@ -134,11 +144,11 @@ ul.plain { margin: .3rem 0 0; padding-left: 1.1rem; }
 
 /* Timeline bars: color follows meaning (the Status column says the same in words, so color is never the only cue) */
 .b-gantt .b-gantt-task.st-released { background-color: var(--ok) !important; }
-.b-gantt .b-gantt-task.st-active { background-color: var(--brand) !important; }
+.b-gantt .b-gantt-task.st-active { background-color: var(--accent) !important; }
 .b-gantt .b-gantt-task.st-pending { background-color: transparent !important; border: 2px dashed var(--muted) !important; }
 
 /* Home page: hero, before/after strip, proof, steps */
-.eyebrow { color: var(--brand); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: .8rem; margin: 0 0 .5rem; }
+.eyebrow { color: var(--accent); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: .8rem; margin: 0 0 .5rem; }
 .hero-grid { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); align-items: center; margin: 12px 0 28px; }
 @media (min-width: 900px) { .hero-grid { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); } }
 .hero h1 { font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.02em; }

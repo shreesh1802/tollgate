@@ -153,12 +153,28 @@ export function reviewsList(reviews = []) {
   }));
 }
 
+// ---- theme: follows the system until the user picks one; reload applies it to the grid/chart/Gantt libraries ----
+function themeToggle() {
+  const root = document.documentElement;
+  const current = () => root.dataset.theme ?? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  const btn = h('button', { type: 'button', class: 'theme-toggle' });
+  const label = () => { btn.textContent = current() === 'dark' ? 'Light mode' : 'Dark mode'; };
+  btn.addEventListener('click', () => {
+    const next = current() === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem('theme', next); } catch { /* storage blocked: applies for this visit only */ }
+    root.dataset.theme = next;
+    location.reload();
+  });
+  label();
+  return btn;
+}
+
 // ---- page chrome ----
 export async function chrome(active) {
   const nav = document.getElementById('nav');
   if (nav) {
     const links = [['/', 'Projects', 'home'], ['/create.html', 'New project', 'create'], ['/verify.html', 'Verifier', 'verify']];
-    nav.replaceChildren(...links.map(([href, label, id]) => h('a', { href, class: id === active ? 'active' : '', 'aria-current': id === active ? 'page' : null, text: label })));
+    nav.replaceChildren(...links.map(([href, label, id]) => h('a', { href, class: id === active ? 'active' : '', 'aria-current': id === active ? 'page' : null, text: label })), themeToggle());
   }
   try {
     const cfg = await api('GET', '/api/config');

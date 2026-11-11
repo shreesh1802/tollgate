@@ -23,7 +23,7 @@ function loadCss(href) {
   if (!document.querySelector(`link[href="${href}"]`)) document.head.append(Object.assign(document.createElement('link'), { rel: 'stylesheet', href }));
 }
 
-const isDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
+const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches; };
 const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 const usd = (n) => `$${Number(n).toFixed(2)}`;
 let vendors = null;
@@ -119,7 +119,7 @@ export async function renderFundsChart(host, stages) {
     height: 260,
     series: [
       { type: 'bar', xKey: 'stage', yKey: 'paid', yName: 'Paid to the worker', stacked: true, fill: cssVar('--ok') },
-      { type: 'bar', xKey: 'stage', yKey: 'settling', yName: 'Sent, settling', stacked: true, fill: cssVar('--brand') },
+      { type: 'bar', xKey: 'stage', yKey: 'settling', yName: 'Sent, settling', stacked: true, fill: cssVar('--accent') },
       { type: 'bar', xKey: 'stage', yKey: 'waiting', yName: 'Held until verified', stacked: true, fill: cssVar('--line') },
     ],
     axes: { x: { type: 'category', position: 'bottom' }, y: { type: 'number', position: 'left', label: { formatter: (p) => usd(p.value) } } },
