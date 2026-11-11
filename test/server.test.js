@@ -1,3 +1,4 @@
+import { request as httpRequest } from 'node:http';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
@@ -69,7 +70,14 @@ async function boot(over = {}) {
   const paypal = over.paypal ?? new MockEscrowPayPal();
   const store = new Store(path.join(dir, 'projects.json'));
   let staticDir = null;
-  if (over.withStatic) { staticDir = path.join(dir, 'public'); mkdirSync(staticDir); writeFileSync(path.join(staticDir, 'index.html'), '<h1>hi</h1>'); }
+  if (over.withStatic) { staticDir = path.join(dir, 'public'); mkdirSync(staticDir); writeFileSync(path.join(staticDir, 'index.html'), '<h1>hi</h1>');
+    mkdirSync(path.join(staticDir, 'docs', 'api'), { recursive: true });
+    writeFileSync(path.join(staticDir, 'docs', 'index.html'), '<h1>docs</h1>');
+    writeFileSync(path.join(staticDir, 'docs', '404.html'), '<h1>missing</h1>');
+    writeFileSync(path.join(staticDir, 'docs', 'api', 'page.html'), '<h1>page</h1>');
+    writeFileSync(path.join(staticDir, 'docs', 'llms.txt'), '# docs');
+    writeFileSync(path.join(dir, 'secret.txt'), 'x'); // outside the public folder
+  }
   const server = createApp({
     store, paypal, reviewers: [makeDemoReviewer('a'), makeDemoReviewer('b')], reviewMode: 'demo', mode: 'mock',
     publicUrl: 'http://x.test', verifierKey: 'vk', uploadsDir: path.join(dir, 'uploads'), staticDir, clock: () => NOW, ...over.app,
@@ -529,5 +537,32 @@ test('a webhook that is down never breaks an upload', async () => {
     const r = await p.upload('S1', pngNoExif(0), { qs: `?demoCode=${await p.code('S1')}` });
     assert.equal(r.status, 200);
     assert.equal(r.json.decision, 'HOLD');
+  } finally { await ctx.close(); }
+});
+
+test('the generated docs portal is served under /docs with its own page rules, and the main site keeps the strict policy', async () => {
+  const ctx = await boot({ withStatic: true });
+  try {
+    const get = async (u) => { const r = await fetch(ctx.base + u); return { status: r.status, type: r.headers.get('content-type'), csp: r.headers.get('content-security-policy'), text: await r.text() }; };
+    const home = await get('/docs/');
+    assert.equal(home.status, 200);
+    assert.match(home.text, /docs/);
+    assert.match(home.csp, /script-src 'self' 'unsafe-inline'/);
+    assert.equal((await get('/docs')).status, 200); // no trailing slash
+    assert.equal((await get('/docs/api/page')).status, 200); // extensionless deep link finds page.html
+    const missing = await get('/docs/nope/nothing');
+    assert.equal(missing.status, 404);
+    assert.match(missing.text, /missing/); // the portal's own 404 page
+    assert.match((await get('/docs/llms.txt')).type, /text\/plain/);
+    const site = await get('/');
+    assert.doesNotMatch(site.csp, /unsafe-inline'; img|script-src 'self' 'unsafe-inline'/);
+    assert.match(site.csp, /script-src 'self';/);
+    // An encoded '..%2f' is not tidied away by URL parsing, so only the server's own path check can stop it.
+    const raw = await new Promise((resolve, reject) => {
+      const u = new URL(ctx.base);
+      const req = httpRequest({ host: u.hostname, port: u.port, path: '/docs/..%2f..%2fsecret.txt' }, (res) => { res.resume(); resolve(res.statusCode); });
+      req.on('error', reject); req.end();
+    });
+    assert.equal(raw, 404);
   } finally { await ctx.close(); }
 });

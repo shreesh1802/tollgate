@@ -15,7 +15,8 @@
     "start": "node src/server/main.js",
     "start:demo": "node src/server/main.js --seed",
     "eval:vision": "node harness/eval-vision.js",
-    "test:api": "npx --yes newman run postman/ProofPay.postman_collection.json --folder \"ProofPay API (run in order)\" --env-var baseUrl=http://localhost:3000 --working-dir ."
+    "test:api": "npx --yes newman run postman/ProofPay.postman_collection.json --folder \"ProofPay API (run in order)\" --env-var baseUrl=http://localhost:3000 --working-dir .",
+    "docs:build": "node -e \"require('fs').copyFileSync('openapi.yaml','portal/src/spec/openapi.yaml')\" && apimatic portal generate -i portal -d public/docs -f"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

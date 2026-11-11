@@ -1,0 +1,40 @@
+{
+  "$schema": "https://cdn.jsdelivr.net/npm/@apimatic/cli@2/apimatic.schema.json",
+  "schemaVersion": 1,
+  "portal": {
+    "site": {
+      "name": "ProofPay API",
+      "url": "https://proofpay-on99.onrender.com/docs"
+    },
+    "brand": {
+      "logo": {
+        "light": "static/images/logo.svg",
+        "dark": "static/images/logo-dark.svg"
+      },
+      "favicon": "static/images/favicon.ico",
+      "colors": {
+        "primary": {
+          "light": "#4E6A2C",
+          "dark": "#A9C77B"
+        }
+      },
+      "colorMode": "both"
+    },
+    "navigation": {
+      "links": []
+    },
+    "ai": {
+      "pageActions": true
+    }
+  },
+  "languages": {
+    "typescript": {},
+    "python": {}
+  },
+  "plugin": {
+    "pluginId": "proofpay-api",
+    "pluginName": "ProofPay API",
+    "pluginVersion": "0.1.0",
+    "license": "MIT"
+  }
+}

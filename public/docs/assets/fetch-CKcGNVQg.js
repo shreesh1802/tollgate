@@ -1,0 +1,1 @@
+export{t as fetchClient}from"./fetch-Da3fBVv0.js";

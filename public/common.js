@@ -173,7 +173,7 @@ function themeToggle() {
 export async function chrome(active) {
   const nav = document.getElementById('nav');
   if (nav) {
-    const links = [['/', 'Projects', 'home'], ['/create.html', 'New project', 'create'], ['/verify.html', 'Verifier', 'verify']];
+    const links = [['/', 'Projects', 'home'], ['/create.html', 'New project', 'create'], ['/verify.html', 'Verifier', 'verify'], ['/docs/', 'API docs', 'docs']];
     nav.replaceChildren(...links.map(([href, label, id]) => h('a', { href, class: id === active ? 'active' : '', 'aria-current': id === active ? 'page' : null, text: label })), themeToggle());
   }
   try {

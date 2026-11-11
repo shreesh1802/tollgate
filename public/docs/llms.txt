@@ -1,0 +1,42 @@
+# Docs
+
+- Home
+  - [Welcome](/docs/): The ProofPay API. Pay for community work only after it is proven.
+- Context Plugin
+  - [Context Plugin](/docs/context-plugin): Give your AI coding assistant working knowledge of this API's SDKs.
+- SDKs
+  - [SDKs](/docs/sdks): Client libraries for this API.
+  - [TypeScript SDK](/docs/sdks/typescript): Install and start using the TypeScript SDK.
+  - [Python SDK](/docs/sdks/python): Install and start using the Python SDK.
+- API Reference
+  - Service: Health and configuration.
+    - [Liveness check](/docs/api/openapi/service/getHealth): `uptimeSeconds` lets an operator tell a restarting process from a routing problem.
+    - [How this server is configured](/docs/api/openapi/service/getConfig): Tells a client whether payments are mock or sandbox, whether reviews are simulated, and the upload size limit.
+  - Projects: Create projects and read their public state and audit log.
+    - [List projects](/docs/api/openapi/projects/listProjects): Also refreshes any payouts that PayPal has accepted but not yet settled.
+    - [Create a project](/docs/api/openapi/projects/createProject): Stage percentages must add up to 100. Each stage has a time window in which its evidence
+must be photographed. The response contains the worker key; keep it, it is shown once.
+    - [Read one project](/docs/api/openapi/projects/getProject): The public view: donations, totals, stages and each stage's submissions. Send
+`X-Worker-Key` to also receive the one-time code of the active stage.
+    - [Read the audit log and check its hash chain](/docs/api/openapi/projects/getAuditLog): Every decision is an entry that includes the hash of the one before it, so altering history breaks the chain.
+  - Donations: Reserve money on PayPal. Nothing is taken until a stage is verified.
+    - [Reserve a donation on PayPal](/docs/api/openapi/donations/createDonation): Creates a PayPal order with intent AUTHORIZE: the money stays in the donor's account and
+is only reserved. On the sandbox, send the donor to `approveUrl` to approve it; they are
+then returned to the site and the reservation is confirmed. In mock mode there is no
+approval step and the donation is confirmed immediately.
+    - [PayPal return link (browser redirect)](/docs/api/openapi/donations/donationReturn): PayPal sends the donor's browser here after approval with `?token=<order id>`. It confirms
+the reservation and redirects back to the site. This is not meant to be called by an API client.
+  - Evidence: Upload and view the photo evidence for each stage.
+    - [Upload photo evidence for a stage](/docs/api/openapi/evidence/submitEvidence): The body is the raw image (JPEG or PNG), not a form. The server checks for duplicates,
+location and time from the photo's metadata, and that the one-time code is visible, then
+asks two independent AI reviewers. The deterministic gate decides: RELEASE, RESUBMIT,
+HOLD (a human decides) or BLOCK. On RELEASE each donor's share is captured and the worker
+is paid.
+
+On a demo server with simulated reviewers, `demoCode`, `demoMatch` and `demoFlags` steer
+the simulated reviewers; they are ignored when real reviewers are used.
+    - [Fetch an evidence photo](/docs/api/openapi/evidence/getEvidenceImage): Public only after the submission has released funds. Before that, the worker or verifier key is required.
+  - Verification: The human verifier queue for held cases.
+    - [Submissions waiting for a human](/docs/api/openapi/verification/getVerifierQueue): Submissions the gate held for review, and ones whose payment release failed and needs a retry.
+    - [Approve or reject a held submission](/docs/api/openapi/verification/decideSubmission): Approval is bound to the evidence the verifier saw: send the `evidenceHash` from the queue
+item. If the evidence changed since, the call fails with 409 and nothing is released.

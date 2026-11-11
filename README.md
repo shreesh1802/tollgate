@@ -124,7 +124,7 @@ Results: [`results/vision-claude-haiku-5-5.json`](results/vision-claude-haiku-5-
 
 ### Automated tests (`npm test`)
 
-99 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
+100 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
 image text, human approval bound to evidence, crash and retry safety, provider failures during
 release, restart recovery, payout settlement (pending, paid, failed), access control, upload limits, concurrency (two simultaneous uploads
 release a stage exactly once), the donation return flow, and the real PayPal adapter against a
@@ -325,7 +325,7 @@ public/          the web UI (plain HTML, CSS and ES modules, no build step); ven
 harness/         judge-check, real-model evals
 corpus/          the 14 attacks and 7 normal tasks for the agent-guard harness
 spike/           step-by-step PayPal sandbox script
-test/            99 tests
+test/            100 tests
 results/         recorded evaluation outputs
 ```
 
@@ -344,7 +344,7 @@ results/         recorded evaluation outputs
 - **Atkinson Hyperlegible** (SIL Open Font License, from the `@fontsource` package): the page font, designed
   by the Braille Institute for legibility, and self-hosted (nothing is loaded from a third-party CDN).
 - **Anthropic Claude** (vision) as the two photo reviewers. The default model is `claude-haiku-5-5`.
-- **OpenAPI**: [`openapi.yaml`](openapi.yaml) describes all 11 API routes (OpenAPI 3.0.3). A test fails if it drifts from the real routes. It is the input for generating a client SDK and API docs with APIMatic.
+- **APIMatic**: [`openapi.yaml`](openapi.yaml) describes all 11 API routes (OpenAPI 3.0.3), and a test fails if it drifts from the real routes. APIMatic generated from it an API docs portal (served at [`/docs/`](https://proofpay-on99.onrender.com/docs/), with code samples and a live API playground), TypeScript and Python client SDKs (zips in `public/docs/__downloads/sdk`), an `llms.txt` for AI agents and a coding-agent plugin. Source is in [`portal/`](portal/); rebuild with `npm run docs:build` (needs `npm i -g @apimatic/cli@2` and `apimatic auth login`).
 - **Postman**: a collection in [`postman/`](postman/) that runs the whole API end to end and replays the PayPal
   sandbox calls, with two ready-made environments (local and the hosted demo). It also runs headless with Newman.
 - **Slack** (optional): an incoming webhook that tells the verifier when a case is held.

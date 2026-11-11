@@ -1,0 +1,39 @@
+---
+title: Welcome
+description: The ProofPay API. Pay for community work only after it is proven.
+---
+
+ProofPay holds community donations in escrow on PayPal and releases each stage payment only when photo evidence passes deterministic checks plus two independent AI reviewers. Plain code makes the decision. A human verifier handles held cases, and every step goes into a hash-chained audit log.
+
+This portal, the SDKs and the agent plugin are all generated from one OpenAPI spec, [`openapi.yaml`](https://github.com/shreesh1802/tollgate/blob/main/openapi.yaml), which a test keeps in sync with the real server.
+
+## How a payment moves
+
+1. **Reserve.** A donor creates a donation. PayPal authorizes it (`intent: AUTHORIZE`), so the money stays in their account.
+2. **Prove.** The worker uploads a photo for the active stage with that stage's one-time code in it.
+3. **Decide.** The gate checks for duplicates, location, time and the code, and asks two AI reviewers. It returns `RELEASE`, `RESUBMIT`, `HOLD` or `BLOCK`.
+4. **Release.** On `RELEASE` each donor's exact share is captured and the worker is paid. On `HOLD` a human verifier decides.
+
+## Who can call what
+
+| Role | Header | Can do |
+|---|---|---|
+| Anyone | none | read projects and the audit log, donate |
+| Worker | `X-Worker-Key` | upload evidence, see the active stage's code |
+| Verifier | `X-Verifier-Key` | read the queue, approve or reject |
+
+## Try it
+
+The live demo runs simulated payments with real AI reviewers: [proofpay-on99.onrender.com](https://proofpay-on99.onrender.com).
+
+<Cards>
+
+<Card title="SDKs" href="/sdks">
+Typed TypeScript and Python clients with authentication built in.
+</Card>
+
+<Card title="Agent-Friendly Docs" href="/llms.txt" external>
+This documentation as Markdown, plus `llms.txt` and `llms-full.txt`, for AI agents.
+</Card>
+
+</Cards>

@@ -6,7 +6,7 @@
 //   - a verifier decides held cases with the verifier key (x-verifier-key)
 //   - an optional organizer key protects project creation
 import http from 'node:http';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
@@ -365,14 +365,31 @@ export function createApp({
     return null;
   }
 
+  // The generated API docs portal (public/docs) is its own single-page app: it needs directory index pages,
+  // a few more file types, its own 404 page for deep links, and inline scripts, so its policy is looser.
+  // Everything else keeps the strict policy below.
+  const DOC_TYPES = { '.md': 'text/markdown; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml', '.zip': 'application/zip', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.webp': 'image/webp', '.map': 'application/json' };
+  const DOCS_CSP = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'";
+  const STRICT_CSP = "default-src 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'";
+
   async function serveStatic(urlPath) {
     if (!staticDir) throw new HttpError(404, 'not found');
-    const rel = decodeURIComponent(urlPath === '/' ? '/index.html' : urlPath);
-    const file = path.resolve(staticDir, `.${rel}`);
-    if (!file.startsWith(path.resolve(staticDir) + path.sep) || !existsSync(file)) throw new HttpError(404, 'not found');
-    const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
-    const headers = type.startsWith('text/html') ? { 'Content-Security-Policy': "default-src 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" } : {};
-    return { status: 200, raw: await readFile(file), type, headers };
+    const root = path.resolve(staticDir);
+    const docs = urlPath === '/docs' || urlPath.startsWith('/docs/');
+    let rel = decodeURIComponent(urlPath === '/' ? '/index.html' : urlPath);
+    const inside = (f) => f.startsWith(root + path.sep);
+    let file = path.resolve(root, `.${rel}`);
+    let status = 200;
+    if (docs) {
+      if (!inside(file)) throw new HttpError(404, 'not found');
+      if (existsSync(file) && statSync(file).isDirectory()) file = path.join(file, 'index.html');
+      else if (!existsSync(file) && !path.extname(file) && existsSync(`${file}.html`)) file = `${file}.html`;
+      if (!existsSync(file)) { file = path.join(root, 'docs', '404.html'); status = 404; }
+    }
+    if (!inside(file) || !existsSync(file)) throw new HttpError(404, 'not found');
+    const type = TYPES[path.extname(file)] ?? (docs ? DOC_TYPES[path.extname(file)] : null) ?? 'application/octet-stream';
+    const headers = type.startsWith('text/html') ? { 'Content-Security-Policy': docs ? DOCS_CSP : STRICT_CSP } : {};
+    return { status, raw: await readFile(file), type, headers };
   }
 
   const server = http.createServer(async (req, res) => {
