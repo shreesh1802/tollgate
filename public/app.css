@@ -52,10 +52,8 @@ nav a:hover { background: var(--brand-soft); color: var(--ink); }
 nav a.active { background: var(--brand-soft); color: var(--brand); }
 
 main { max-width: 1060px; margin: 0 auto; padding: 20px 16px 64px; }
-.banner { margin: 12px auto 0; max-width: 1060px; padding: .5rem 16px; font-size: .84rem; border-radius: 10px; }
-.banner.warn { background: var(--warn-bg); color: var(--warn); }
-.banner.info { background: var(--info-bg); color: var(--info); }
-#banner { max-width: 1060px; margin: 0 auto; padding: 0 16px; }
+#banner { max-width: 1060px; margin: 32px auto 0; padding: 16px 16px 28px; border-top: 1px solid var(--line); }
+.banner { margin: 0; font-size: .8rem; color: var(--muted); text-align: center; }
 
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
 .card + .card, .stack > * + * { margin-top: 16px; }
