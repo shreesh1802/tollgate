@@ -10,7 +10,7 @@ import { Store } from './store.js';
 import { MockEscrowPayPal } from '../paypal/escrow-mock.js';
 import { SandboxEscrowPayPal } from '../paypal/sandbox-escrow.js';
 import { defaultReviewers, makeDemoReviewer } from '../proofpay/review.js';
-import { createProject, addDonation } from '../proofpay/project.js';
+import { seedDemoProject, DEMO_CODE } from './seed.js';
 
 try { process.loadEnvFile('.env'); } catch { /* no .env file, use the real environment */ }
 
@@ -34,26 +34,8 @@ if (mode === 'mock') paypal.restoreFrom(store.list()); // the mock has no memory
 
 const wantSeed = env.SEED === '1' || process.argv.includes('--seed');
 if (wantSeed && mode === 'mock' && store.list().length === 0) {
-  const now = Date.now();
-  const window = { from: new Date(now - 86400000).toISOString(), to: new Date(now + 30 * 86400000).toISOString() };
-  const p = createProject({
-    title: 'Fix the village water pump',
-    worker: { name: 'Ravi Kumar', email: 'ravi@worker.example' },
-    site: { lat: 12.9716, lon: 77.5946, radiusM: 300 },
-    stages: [
-      { title: 'Remove the old pump', spec: 'old pump removed and the site cleared', pct: 30, window },
-      { title: 'Install the new pump', spec: 'new pump visibly installed and mounted', pct: 40, window },
-      { title: 'Water flowing', spec: 'water visibly flowing from the new pump', pct: 30, window },
-    ],
-  });
-  p.workerKey = randomBytes(12).toString('hex');
-  for (const [donor, amount] of [['Asha', 60], ['Ben', 40]]) {
-    const order = await paypal.createDonationOrder({ amount, currency: 'USD' });
-    const a = await paypal.authorizeOrder(order.orderId);
-    addDonation(p, { donor, amount, authorizationId: a.authorizationId, orderId: order.orderId, expiresAt: a.expiresAt });
-  }
-  store.put(p);
-  console.log(`seeded demo project ${p.id}\n  worker link: ${publicUrl}/worker.html?project=${p.id}&key=${p.workerKey}`);
+  const p = await seedDemoProject({ store, paypal, code: env.DEMO_CODE ?? DEMO_CODE });
+  console.log(`seeded demo project ${p.id} (stage code ${p.stages[0].code})`);
 }
 
 // Demo mode (mock PayPal, seeded project): the home page shows a guide with the worker link and

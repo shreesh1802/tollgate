@@ -168,13 +168,15 @@ is the real code.
 Walkthrough:
 
 1. Open `http://localhost:3000` and click the project: $100 reserved by two donors, three stages.
-2. Open the **worker link**. Upload any JPEG or PNG. A plain PNG has no location data, so the
-   result is **"Sent to a human verifier"**, and the check table shows why.
+2. Open the **worker link** and upload the **Stage 1 sample photo** (the home page offers all three
+   for download; they are in `public/samples/`). A PNG has no location data, so the result is
+   **"Sent to a human verifier"**, and the check table shows why.
 3. Open `/verify.html`, paste the **verifier key**, and approve. The donor page now shows the
    stage paid, each donor's contribution, and the evidence photo.
 4. Click **Show audit log**: "Chain verified".
-5. Try the failure cases with the **Simulation controls** on the worker page: a wrong code, a
-   `screen_photo` flag, or the same image again for the next stage (blocked as a duplicate).
+5. Repeat for stages 2 and 3 with their sample photos, and the donor page ends at $100 paid.
+6. Try to cheat: upload the stage 1 photo again for stage 2 (blocked as a duplicate), or use the
+   **Simulation controls** on the worker page for a wrong code or a `screen_photo` flag.
 
 For a fully automatic release, create a project on the **New project** page at your own
 coordinates and upload a phone photo taken there with location tagging on.
@@ -327,4 +329,6 @@ results/         recorded evaluation outputs
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). The three sample photos in `public/samples/` were taken by the
+project author and are released under the same license. The demo project uses a fixed code
+(`7K2Q`, shown on paper in those photos) so they work; real projects get a random code per stage.

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import jpeg from 'jpeg-js';
@@ -13,6 +13,7 @@ import { makeDemoReviewer } from '../src/proofpay/review.js';
 import { hamming } from '../src/proofpay/evidence.js';
 import { dHash } from '../src/proofpay/image.js';
 import { auditFor } from '../src/proofpay/project.js';
+import { seedDemoProject, SAMPLE_PHOTOS, DEMO_CODE } from '../src/server/seed.js';
 
 const NOW = Date.UTC(2026, 10, 10, 12);
 const SITE = { lat: 12.9716, lon: 77.5946, radiusM: 300 };
@@ -412,5 +413,66 @@ test('a public demo can cap how many projects exist', async () => {
     const second = await ctx.api('POST', '/api/projects', { body: PROJECT });
     assert.equal(second.status, 429);
     assert.match(second.json.error, /project limit/);
+  } finally { await ctx.close(); }
+});
+
+// ---- the demo project and its bundled sample photos (the path a judge takes) ----
+
+const samplePhoto = (file) => readFileSync(new URL(`../public/samples/${file}`, import.meta.url));
+
+test('the sample photos are valid, distinct pictures (so the honest stages never look like duplicates)', async () => {
+  const { prepareUpload } = await import('../src/proofpay/image.js');
+  const hashes = [];
+  for (const p of SAMPLE_PHOTOS) {
+    const up = await prepareUpload(samplePhoto(p.file), p.file);
+    assert.equal(up.mediaType, 'image/png');
+    assert.equal(up.facts.gps, null); // no hidden location data was published with them
+    hashes.push(up.facts.hash);
+  }
+  for (let i = 0; i < hashes.length; i++) for (let j = i + 1; j < hashes.length; j++) assert.ok(hamming(hashes[i], hashes[j]) > 6);
+});
+
+test('the seeded demo project matches the sample photos, and funds exactly $100', async () => {
+  const ctx = await boot();
+  try {
+    const p = await seedDemoProject({ store: ctx.store, paypal: ctx.paypal });
+    assert.equal(p.stages.length, 3);
+    assert.ok(p.stages.every((s) => s.code === DEMO_CODE));
+    assert.equal((await ctx.api('GET', `/api/projects/${p.id}`)).json.totals.reserved, '100.00');
+    assert.ok(p.workerKey);
+  } finally { await ctx.close(); }
+});
+
+test('a visitor can walk the whole demo with the bundled photos: upload, approve, $100 paid', async () => {
+  const ctx = await boot();
+  try {
+    const p = await seedDemoProject({ store: ctx.store, paypal: ctx.paypal });
+    const up = (stage, file) => ctx.api('POST', `/api/projects/${p.id}/stages/${stage}/submissions?demoCode=${DEMO_CODE}`, { body: samplePhoto(file), raw: true, headers: { 'x-worker-key': p.workerKey, 'content-type': 'application/octet-stream' } });
+    const approve = async (subId) => {
+      const q = (await ctx.api('GET', '/api/verify/queue', { headers: { 'x-verifier-key': 'vk' } })).json.find((i) => i.submission.id === subId);
+      return ctx.api('POST', `/api/verify/${p.id}/${subId}`, { body: { decision: 'approve', evidenceHash: q.evidenceHash }, headers: { 'x-verifier-key': 'vk' } });
+    };
+    for (const [i, photo] of SAMPLE_PHOTOS.entries()) {
+      const r = await up(photo.stage, photo.file);
+      assert.equal(r.json.decision, 'HOLD', JSON.stringify(r.json.reasons)); // a PNG has no location, so a human decides
+      assert.equal((await approve(`${photo.stage}-1`)).status, 200);
+      assert.equal((await view(ctx, p.id)).stages[i].status, 'RELEASED');
+    }
+    assert.equal((await view(ctx, p.id)).totals.paid, '100.00');
+    assert.equal((await ctx.api('GET', `/api/projects/${p.id}/audit`)).json.chain.ok, true);
+  } finally { await ctx.close(); }
+});
+
+test('re-uploading the stage 1 photo for stage 2 is blocked as a duplicate (the guide tells visitors to try it)', async () => {
+  const ctx = await boot();
+  try {
+    const p = await seedDemoProject({ store: ctx.store, paypal: ctx.paypal });
+    const up = (stage, file) => ctx.api('POST', `/api/projects/${p.id}/stages/${stage}/submissions?demoCode=${DEMO_CODE}`, { body: samplePhoto(file), raw: true, headers: { 'x-worker-key': p.workerKey, 'content-type': 'application/octet-stream' } });
+    await up('S1', 'stage1_before.png');
+    const q = (await ctx.api('GET', '/api/verify/queue', { headers: { 'x-verifier-key': 'vk' } })).json[0];
+    await ctx.api('POST', `/api/verify/${p.id}/S1-1`, { body: { decision: 'approve', evidenceHash: q.evidenceHash }, headers: { 'x-verifier-key': 'vk' } });
+    const again = await up('S2', 'stage1_before.png');
+    assert.equal(again.json.decision, 'BLOCK');
+    assert.ok(again.json.reasons.some((x) => x.rule === 'duplicate-evidence'));
   } finally { await ctx.close(); }
 });

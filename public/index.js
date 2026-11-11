@@ -1,6 +1,13 @@
 import { h, clear, api, qs, money, fmtDate, fmtDay, chrome, showError, stageBadge, submissionBadge, donationBadge, explain, payoutProblemText } from '/common.js';
 import { setVendors, renderGantt, renderLedgerGrid, renderAuditGrid, renderFundsChart } from '/vendor-ui.js';
 
+// Declared before the page code below runs (module code executes top to bottom).
+const SAMPLES = [
+  { file: 'stage1_before.png', caption: 'Stage 1: old pump' },
+  { file: 'stage2_installed.png', caption: 'Stage 2: new pump installed' },
+  { file: 'stage3_water_flow.png', caption: 'Stage 3: water flowing' },
+];
+
 const app = document.getElementById('app');
 const cfg = await chrome('home');
 setVendors(cfg.vendors ?? []);
@@ -44,10 +51,16 @@ function demoGuide(cfg) {
       : 'Payments are simulated. Two real Claude reviewers judge your photos, so upload something that shows the stage.' }),
     h('ol', { style: 'padding-left:1.1rem;margin:.6rem 0 0' },
       step(1, 'See the project.', h('a', { href: `/?project=${encodeURIComponent(d.projectId)}`, text: 'Open the donor page' })),
-      step(2, 'Act as the worker.', [h('a', { href: `/worker.html?project=${encodeURIComponent(d.projectId)}&key=${encodeURIComponent(d.workerKey)}`, text: 'Open the worker page' }), ' and upload any JPEG or PNG. A photo without location data is sent to a human, which is the next step.']),
+      step(2, 'Act as the worker.', [h('a', { href: `/worker.html?project=${encodeURIComponent(d.projectId)}&key=${encodeURIComponent(d.workerKey)}`, text: 'Open the worker page' }), ' and upload the Stage 1 sample photo below. A photo without location data is sent to a human, which is the next step.']),
       step(3, 'Act as the verifier.', [h('a', { href: `/verify.html?key=${encodeURIComponent(d.verifierKey)}`, text: 'Open the verifier queue' }), ' and approve. The stage payment is split across both donors and the donor page updates.']),
-      step(4, 'Try to cheat.', 'Upload the same photo again for the next stage (blocked as a duplicate), or photograph a screen showing a pump.')));
+      step(4, 'Try to cheat.', 'Upload the stage 1 photo again for stage 2: it is blocked as a duplicate and no money moves.')),
+    h('h3', { style: 'margin-top:1rem', text: 'Sample photos for each stage' }),
+    h('p', { class: 'muted small', text: `Download one and upload it on the worker page. Each shows the code ${'7K2Q'} on paper, which is this demo project's one-time code. Real projects get a random code for each stage.` }),
+    h('div', { class: 'grid cols-3', style: 'margin-top:.5rem' }, SAMPLES.map((p) => h('figure', { style: 'margin:0' },
+      h('img', { src: `/samples/${p.file}`, alt: p.caption, class: 'thumb', loading: 'lazy' }),
+      h('figcaption', { class: 'small' }, `${p.caption} `, h('a', { href: `/samples/${p.file}`, download: p.file, text: 'Download' }))))));
 }
+
 
 // ---------------------------------------------------------------- one project
 
