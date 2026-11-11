@@ -63,3 +63,22 @@ test('only https webhooks are accepted (unless explicitly allowed for local test
   assert.throws(() => make({ url: 'http://hooks.example.test/x' }), /https/);
   assert.doesNotThrow(() => make({ url: 'http://localhost:9/x', allowInsecure: true }));
 });
+
+test('Slack webhooks get one readable message with a clickable link, not raw JSON', async () => {
+  const f = fakeFetch();
+  await make({ url: 'https://hooks.slack.com/services/T0/B0/xyz', fetchImpl: f.impl })(event);
+  const body = f.calls[0].body;
+  assert.deepEqual(Object.keys(body), ['text']);
+  assert.match(body.text, /^\*Review needed: Fix the pump, Old pump documented\*\n/);
+  assert.match(body.text, /location-unknown \(no location metadata\)/);
+  assert.match(body.text, /<https:\/\/demo\.example\.test\/verify\.html\|Open the verifier page>$/);
+});
+
+test("Discord's Slack-compatible endpoint is detected, and the format can be forced", async () => {
+  const d = fakeFetch();
+  await make({ url: 'https://discord.com/api/webhooks/1/abc/slack', fetchImpl: d.impl })(event);
+  assert.deepEqual(Object.keys(d.calls[0].body), ['text']);
+  const j = fakeFetch();
+  await make({ url: 'https://hooks.slack.com/services/T0/B0/xyz', format: 'json', fetchImpl: j.impl })(event);
+  assert.equal(j.calls[0].body.event, 'review_needed'); // forced back to the full JSON
+});

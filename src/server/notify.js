@@ -4,9 +4,12 @@
 //
 // Failures are logged and swallowed: a broken webhook must never break an upload.
 
-export function makeWebhookNotifier({ url, publicUrl, fetchImpl = globalThis.fetch, maxPerHour = 20, now = Date.now, timeoutMs = 5000, allowInsecure = false, log = console }) {
+export function makeWebhookNotifier({ url, publicUrl, fetchImpl = globalThis.fetch, maxPerHour = 20, now = Date.now, timeoutMs = 5000, allowInsecure = false, format = null, log = console }) {
   const target = new URL(url);
   if (target.protocol !== 'https:' && !allowInsecure) throw new Error('NOTIFY_WEBHOOK_URL must be an https URL');
+  // Slack incoming webhooks (and Discord's Slack-compatible endpoint, ending in /slack) show only a
+  // `text` field, so for those we send one nicely formatted message instead of the full JSON.
+  const asSlack = (format ?? (target.hostname === 'hooks.slack.com' || target.pathname.endsWith('/slack') ? 'slack' : 'json')) === 'slack';
   const sent = [];
 
   return async function notify(event) {
@@ -39,7 +42,9 @@ export function makeWebhookNotifier({ url, publicUrl, fetchImpl = globalThis.fet
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), timeoutMs);
     try {
-      const res = await fetchImpl(target, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(message), signal: ctl.signal });
+      const res = await fetchImpl(target, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(asSlack ? { text: `*${message.title}*
+${message.text}
+<${message.reviewUrl}|Open the verifier page>` } : message), signal: ctl.signal });
       if (!res.ok) log.warn?.(`verifier notification got HTTP ${res.status}`);
       return res.ok;
     } catch (err) {
