@@ -59,7 +59,7 @@ function proofStrip() {
   return h('section', { class: 'proof grid cols-3', 'aria-label': 'Verified results' },
     item('$10.00 \u2192 $10.00', 'Reserved, then paid out', 'A live PayPal sandbox run, confirmed by PayPal itself.'),
     item('96', 'Automated tests', 'Including fraud, crash, retry and prompt-injection cases.'),
-    item('8 of 8', 'Test photos handled right', 'Honest and fake, judged by real Claude reviewers.'));
+    item('8 of 8', 'Test photos handled right', 'Honest and fake, judged by real AI agents.'));
 }
 
 function howItWorks() {
@@ -83,7 +83,7 @@ function demoGuide(cfg) {
     h('div', { class: 'row between' }, h('h2', { id: 'tryit', text: 'Try it in two minutes' }), h('span', { class: 'badge warn', text: 'Demo mode: test money only' })),
     h('p', { class: 'muted small', text: cfg.simulatedReviews
       ? 'Payments and photo reviews are simulated in this run. Everything after the reviewers (checks, release gate, splitting, audit log) is the real code.'
-      : 'Payments are simulated. Two real Claude reviewers judge your photos, so upload something that shows the stage.' }),
+      : 'Payments are simulated. Two real AI agents review your photos, so upload something that shows the stage.' }),
     h('ol', { style: 'padding-left:1.1rem;margin:.6rem 0 0' },
       step(1, 'See the project.', h('a', { href: `/?project=${encodeURIComponent(d.projectId)}`, text: 'Open the donor page' })),
       step(2, 'Act as the worker.', [h('a', { href: `/worker.html?project=${encodeURIComponent(d.projectId)}&key=${encodeURIComponent(d.workerKey)}`, text: 'Open the worker page' }), ' and upload the Stage 1 sample photo below. A photo without location data is sent to a human, which is the next step.']),

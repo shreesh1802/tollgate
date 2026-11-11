@@ -181,7 +181,7 @@ export async function chrome(active) {
     const banner = document.getElementById('banner');
     if (banner) {
       const parts = [cfg.mode === 'mock' ? 'Payments: mock PayPal (no sandbox)' : 'Payments: PayPal sandbox (test money only)'];
-      parts.push(cfg.simulatedReviews ? 'Photo reviews: SIMULATED, no AI model in this run' : 'Photo reviews: Claude vision, two independent reviewers');
+      parts.push(cfg.simulatedReviews ? 'Photo reviews: SIMULATED, no AI model in this run' : 'Photo reviews: AI agents, two independent reviewers');
       banner.replaceChildren(h('p', { class: 'banner', role: 'status', text: parts.join('  ·  ') }));
     }
     return cfg;
