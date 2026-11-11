@@ -61,6 +61,11 @@ const app = createApp({
   organizerKey: env.ORGANIZER_KEY ?? null,
   uploadsDir: path.join(dataDir, 'uploads'),
   staticDir: path.join(root, 'public'),
+  vendor: {
+    '/vendor/ag-grid/': path.join(root, 'node_modules/ag-grid-community/dist'),
+    '/vendor/ag-charts/': path.join(root, 'node_modules/ag-charts-community/dist/umd'),
+    '/vendor/bryntum/': path.join(root, 'node_modules/@bryntum/gantt'), // trial package: served from node_modules, never committed
+  },
   maxReviewsPerHour: Number(env.MAX_REVIEWS_PER_HOUR ?? 60),
 });
 

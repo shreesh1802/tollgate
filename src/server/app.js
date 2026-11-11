@@ -79,10 +79,16 @@ function payoutTotals(p) {
 
 const holdExpiry = (p) => confirmedDonations(p).filter((d) => d.expiresAt).map((d) => d.expiresAt).sort()[0] ?? null;
 
+const isoFromTs = (ts) => (ts > 1e9 ? new Date(ts).toISOString() : null);
+
+/** When a stage was released. Older records did not store it, so fall back to the audit log. */
+const releasedAt = (p, s) => s.release?.releasedAt ?? isoFromTs(p.auditEntries.find((e) => e.event === 'release' && e.stage === s.id && e.ok)?.ts);
+
 function projectView(p, { asWorker = false } = {}) {
   return {
     id: p.id,
     title: p.title,
+    startedAt: p.createdAt ?? isoFromTs(p.auditEntries[0]?.ts),
     currency: p.currency,
     worker: { name: p.worker.name }, // the payee's email is never published
     site: p.site,
@@ -98,6 +104,7 @@ function projectView(p, { asWorker = false } = {}) {
       window: s.window,
       status: s.status,
       release: s.release,
+      releasedAt: s.release ? releasedAt(p, s) : null,
       code: asWorker && s.status === 'ACTIVE' ? s.code : undefined, // the one-time code is for the worker only
       submissions: s.submissions.map((x) => ({ id: x.id, status: x.status, receivedAt: x.receivedAt, decision: x.verdict?.decision, reasons: x.verdict?.reasons?.map((r) => r.rule) })),
     })),
@@ -119,6 +126,7 @@ function submissionView(out) {
 export function createApp({
   store, paypal, reviewers, reviewMode = 'demo', mode = 'mock', publicUrl, verifierKey, organizerKey = null,
   uploadsDir, staticDir = null, clock = () => Date.now(), maxReviewsPerHour = 60, payoutCheckIntervalMs = 4000,
+  vendor = {}, // { '/vendor/name/': absoluteDirectory } third-party UI bundles served straight from node_modules
 }) {
   const routes = [];
   const route = (method, pattern, handler) => routes.push({ method, re: new RegExp(`^${pattern.replace(/:(\w+)/g, '(?<$1>[^/]+)')}$`), handler });
@@ -154,7 +162,8 @@ export function createApp({
   }
 
   route('GET', '/api/health', async () => json({ ok: true }));
-  route('GET', '/api/config', async () => json({ mode, reviewMode, simulatedReviews: reviewMode === 'demo', maxUploadBytes: MAX_BYTES }));
+  const vendors = Object.fromEntries(Object.entries(vendor).filter(([, dir]) => existsSync(dir)));
+  route('GET', '/api/config', async () => json({ mode, reviewMode, simulatedReviews: reviewMode === 'demo', maxUploadBytes: MAX_BYTES, vendors: Object.keys(vendors) }));
 
   // Payouts settle after PayPal accepts them, so reading a project also checks any pending ones.
   const settle = async (id) => {
@@ -332,13 +341,28 @@ export function createApp({
     });
   });
 
+  const VENDOR_TYPES = { ...TYPES, '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.gif': 'image/gif' };
+
+  /** Third-party bundles: only the configured folders, only known file types, never outside them. */
+  async function serveVendor(urlPath) {
+    for (const [prefix, dir] of Object.entries(vendors)) {
+      if (!urlPath.startsWith(prefix)) continue;
+      const root = path.resolve(dir);
+      const file = path.resolve(root, `.${path.sep}${decodeURIComponent(urlPath.slice(prefix.length))}`);
+      const type = VENDOR_TYPES[path.extname(file)];
+      if (!file.startsWith(root + path.sep) || !type || !existsSync(file)) throw new HttpError(404, 'not found');
+      return { status: 200, raw: await readFile(file), type, headers: { 'Cache-Control': 'public, max-age=3600' } };
+    }
+    return null;
+  }
+
   async function serveStatic(urlPath) {
     if (!staticDir) throw new HttpError(404, 'not found');
     const rel = decodeURIComponent(urlPath === '/' ? '/index.html' : urlPath);
     const file = path.resolve(staticDir, `.${rel}`);
     if (!file.startsWith(path.resolve(staticDir) + path.sep) || !existsSync(file)) throw new HttpError(404, 'not found');
     const type = TYPES[path.extname(file)] ?? 'application/octet-stream';
-    const headers = type.startsWith('text/html') ? { 'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" } : {};
+    const headers = type.startsWith('text/html') ? { 'Content-Security-Policy': "default-src 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'" } : {};
     return { status: 200, raw: await readFile(file), type, headers };
   }
 
@@ -350,7 +374,7 @@ export function createApp({
       let out;
       const hit = routes.map((r) => (r.method === req.method ? { r, m: r.re.exec(url.pathname) } : null)).find((x) => x?.m);
       if (hit) out = await hit.r.handler({ req, params: hit.m.groups ?? {}, query });
-      else if (req.method === 'GET' && !url.pathname.startsWith('/api/')) out = await serveStatic(url.pathname);
+      else if (req.method === 'GET' && !url.pathname.startsWith('/api/')) out = (await serveVendor(url.pathname)) ?? (await serveStatic(url.pathname));
       else throw new HttpError(404, 'not found');
       const payload = out.raw ?? out.body;
       res.writeHead(out.status, { ...base, 'Content-Type': out.type ?? 'text/plain', 'Cache-Control': url.pathname.startsWith('/api/') ? 'no-store' : 'no-cache', ...out.headers });

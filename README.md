@@ -124,7 +124,7 @@ Results: [`results/vision-claude-haiku-5-5.json`](results/vision-claude-haiku-5-
 
 ### Automated tests (`npm test`)
 
-73 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
+80 tests: the gate, exact-to-the-cent splitting across donors, fraud cases, prompt injection in
 image text, human approval bound to evidence, crash and retry safety, provider failures during
 release, restart recovery, payout settlement (pending, paid, failed), access control, upload limits, concurrency (two simultaneous uploads
 release a stage exactly once), the donation return flow, and the real PayPal adapter against a
@@ -261,6 +261,9 @@ then follow `spike/README.md` (authorize, partial captures, payout).
   shows sensible behaviour, not an error rate. Convincing AI-generated images and carefully
   staged scenes are untested. The two reviewers use the same model by default, so their
   opinions are correlated unless you set `REVIEWER_MODEL_B`.
+- **The Bryntum Gantt is a trial.** It shows a trial watermark and may stop working after its trial
+  period. The rest of the app does not depend on it. Gantt bars are drawn at least a day wide so a
+  fast demo stays readable; the exact verification time is shown next to each stage.
 - **Simulated modes are labelled.** With `REVIEWERS=demo` no model runs, and with `MODE=mock` no
   PayPal call is made. The UI says so on every page.
 - **Payout settlement is tracked, but a failed payout is not auto-resolved.** PayPal accepts a payout
@@ -281,11 +284,12 @@ src/paypal/      sandbox adapter (real API), mock escrow PayPal, original mock
 src/server/      HTTP API, JSON store, entry point
 src/             Tollgate: policy engine, provenance ledger, audit log, gateway
 src/agents/      the original agent-guard harness (simulated and Claude agents)
-public/          the web UI (plain HTML, CSS and ES modules, no build step)
+public/          the web UI (plain HTML, CSS and ES modules, no build step); vendor-ui.js
+                 loads AG Grid, AG Charts and Bryntum on demand, plan.js builds the timeline data
 harness/         judge-check, real-model evals
 corpus/          the 14 attacks and 7 normal tasks for the agent-guard harness
 spike/           step-by-step PayPal sandbox script
-test/            73 tests
+test/            80 tests
 results/         recorded evaluation outputs
 ```
 
@@ -294,9 +298,18 @@ results/         recorded evaluation outputs
 - **PayPal sandbox:** Orders v2 (`AUTHORIZE` and authorize), Payments v2 (partial capture with
   `final_capture`, authorization status), Payouts v1 (batch payouts and status). The donor's
   approval uses PayPal's hosted approval page.
+- **AG Grid Community** (MIT): the money ledger and the audit log, as sortable, filterable,
+  paginated tables themed to match the page.
+- **AG Charts Community** (MIT): the "funds by stage" chart (paid, settling, held until verified).
+- **Bryntum Gantt** (commercial 45-day trial, installed as an *optional* dependency): the stage
+  timeline, where each stage is chained by a dependency to the payment it unlocks. The trial
+  bundle carries a watermark and is never committed to this repo, it is installed from npm.
+  If it is not installed or fails to start, the page simply shows the plain stage list instead.
 - **Anthropic Claude** (vision) as the two photo reviewers. The default model is `claude-haiku-5-5`.
 - **Node.js**, with four runtime dependencies: `@anthropic-ai/sdk`, `exifr` (EXIF reading),
-  `jpeg-js` and `pngjs` (image decoding for the perceptual hash).
+  `jpeg-js` and `pngjs` (image decoding for the perceptual hash), plus the AG Grid and AG Charts
+  community packages. The Bryntum trial package is about 50 MB; skip it with
+  `npm install --omit=optional`.
 - Built with the help of Claude Code.
 
 ## License

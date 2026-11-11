@@ -81,7 +81,7 @@ export async function releaseStage({ project, stage, paypal, clock = () => Date.
 
   stage.status = 'RELEASED';
   const payoutStatus = payout.result.status ?? 'PENDING';
-  stage.release = { captures, payout: { amount: fromCents(unpaid), batch_id: payout.result.batch_id, status: payoutStatus, state: stateOf(payoutStatus) } };
+  stage.release = { releasedAt: new Date(clock()).toISOString(), captures, payout: { amount: fromCents(unpaid), batch_id: payout.result.batch_id, status: payoutStatus, state: stateOf(payoutStatus) } };
   const upcoming = project.stages[stage.index + 1];
   if (upcoming) upcoming.status = 'ACTIVE';
   return { ok: true, captures, payout: stage.release.payout };

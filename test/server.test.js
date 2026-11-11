@@ -360,3 +360,38 @@ test('payouts recorded before settlement tracking existed still count as paid', 
     assert.equal((await view(ctx, p.id)).totals.paid, '30.00');
   } finally { await ctx.close(); }
 });
+
+// ---- third-party bundles served from node_modules ----
+
+test('vendor files: only configured folders and known file types, never outside them', async () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'vendor-'));
+  writeFileSync(path.join(dir, 'lib.js'), 'window.lib = 1;');
+  writeFileSync(path.join(dir, 'theme.css'), 'body{}');
+  writeFileSync(path.join(dir, 'secret.txt'), 'nope');
+  writeFileSync(path.join(dir, '..', 'outside.js'), 'window.outside = 1;');
+  const ctx = await boot({ app: { vendor: { '/vendor/lib/': dir, '/vendor/missing/': path.join(dir, 'does-not-exist') } } });
+  try {
+    assert.deepEqual((await ctx.api('GET', '/api/config')).json.vendors, ['/vendor/lib/']); // a missing package is simply not advertised
+    const ok = await fetch(`${ctx.base}/vendor/lib/lib.js`);
+    assert.equal(ok.status, 200);
+    assert.match(ok.headers.get('content-type'), /javascript/);
+    assert.equal((await fetch(`${ctx.base}/vendor/lib/theme.css`)).status, 200);
+    assert.equal((await fetch(`${ctx.base}/vendor/lib/secret.txt`)).status, 404); // unknown type
+    assert.equal((await fetch(`${ctx.base}/vendor/lib/nope.js`)).status, 404);
+    assert.equal((await fetch(`${ctx.base}/vendor/lib/..%2Foutside.js`)).status, 404); // traversal
+    assert.equal((await fetch(`${ctx.base}/vendor/missing/lib.js`)).status, 404);
+  } finally { await ctx.close(); }
+});
+
+test('the project view carries release times and a start time for the timeline', async () => {
+  const ctx = await boot();
+  try {
+    const p = await funded(ctx);
+    let v = await view(ctx, p.id);
+    assert.ok(v.startedAt);
+    assert.equal(v.stages[0].releasedAt, null);
+    await p.upload('S1', photo(0), { qs: `?demoCode=${await p.code('S1')}` });
+    v = await view(ctx, p.id);
+    assert.equal(v.stages[0].releasedAt, new Date(NOW).toISOString());
+  } finally { await ctx.close(); }
+});

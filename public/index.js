@@ -1,7 +1,9 @@
 import { h, clear, api, qs, money, fmtDate, fmtDay, chrome, showError, stageBadge, submissionBadge, donationBadge, explain, payoutProblemText } from '/common.js';
+import { setVendors, renderGantt, renderLedgerGrid, renderAuditGrid, renderFundsChart } from '/vendor-ui.js';
 
 const app = document.getElementById('app');
-await chrome('home');
+const cfg = await chrome('home');
+setVendors(cfg.vendors ?? []);
 const pid = qs().get('project');
 await (pid ? projectPage(pid) : listPage());
 
@@ -40,6 +42,14 @@ async function projectPage(id) {
   const donations = h('div');
   const donateMsg = h('div', { 'aria-live': 'polite' });
   const auditBody = h('div');
+  // Third-party components. Each card stays hidden unless its library loaded, so the page never depends on them.
+  const optionalCard = (title, note, host) => h('section', { class: 'card', hidden: true }, h('h2', { text: title }), h('p', { class: 'muted small', text: note }), host);
+  const ganttHost = h('div');
+  const ganttCard = optionalCard('Timeline', 'Each stage unlocks the next payment. Bars show when a stage was verified (drawn at least a day wide so quick demos stay readable).', ganttHost);
+  const chartHost = h('div');
+  const chartCard = optionalCard('Funds by stage', 'How much of each stage has been paid, is settling, or is still held until the evidence is verified.', chartHost);
+  const ledgerHost = h('div');
+  const ledgerCard = optionalCard('Money ledger', 'Every capture from a donor and every payout to the worker, with its PayPal reference.', ledgerHost);
 
   const nameIn = h('input', { id: 'donor', type: 'text', maxlength: 60, autocomplete: 'name', required: true, placeholder: 'Your name' });
   const amountIn = h('input', { id: 'amount', type: 'number', min: 1, max: 1000, step: '0.01', value: '25', required: true, inputmode: 'decimal' });
@@ -68,8 +78,9 @@ async function projectPage(id) {
 
   clear(app).append(
     head, notices,
-    h('div', { class: 'layout' },
-      h('div', { class: 'stack' }, summary, h('section', { class: 'card', 'aria-labelledby': 'tl' }, h('h2', { id: 'tl', text: 'Stages and payments' }), h('p', { class: 'muted small', text: 'Money is released one stage at a time, and only after the evidence for that stage is verified.' }), timeline)),
+    ganttCard, // full width: a timeline needs room
+    h('div', { class: 'layout', style: 'margin-top:16px' },
+      h('div', { class: 'stack' }, summary, h('section', { class: 'card', 'aria-labelledby': 'tl' }, h('h2', { id: 'tl', text: 'Stages and payments' }), h('p', { class: 'muted small', text: 'Money is released one stage at a time, and only after the evidence for that stage is verified.' }), timeline), chartCard, ledgerCard),
       h('div', { class: 'stack sticky' },
         h('section', { class: 'card' }, h('h2', { text: 'Donate' }), h('p', { class: 'muted small', text: 'Your money stays on your PayPal account as a reservation. It is only taken as each stage is verified. Reservations last up to 29 days.' }), form, donateMsg),
         h('section', { class: 'card' }, h('h2', { text: 'Donors' }), donations),
@@ -114,6 +125,39 @@ async function projectPage(id) {
               : Number(d.released) > 0 ? h('span', { class: 'badge info', text: `${money(d.released)} released` })
                 : donationBadge('CONFIRMED')))))))
       : h('p', { class: 'muted', text: 'No donations yet. Be the first.' }));
+
+    enhance(v);
+  }
+
+  // Draw the optional components. Skipped if a previous pass is still running.
+  let enhancing = false;
+  async function enhance(v) {
+    if (enhancing) return;
+    enhancing = true;
+    try {
+      ganttCard.hidden = !(await renderGantt(ganttHost, v));
+
+      const total = Number(v.totals.reserved);
+      const stages = v.stages.map((s) => {
+        const pay = s.release?.payout;
+        const state = pay ? (pay.state ?? 'paid') : null;
+        const amount = pay ? Number(pay.amount) : (total * s.pct) / 100;
+        return { label: `Stage ${s.index + 1}`, paid: state === 'paid' ? amount : 0, settling: state === 'pending' ? amount : 0, waiting: state === 'paid' || state === 'pending' ? 0 : amount };
+      });
+      chartCard.hidden = !(await renderFundsChart(chartHost, stages));
+
+      const rows = v.stages.flatMap((s) => {
+        if (!s.release) return [];
+        const donorOf = (did) => v.donations.find((d) => d.id === did)?.donor ?? did;
+        const pay = s.release.payout;
+        const state = { paid: 'Paid', pending: 'Settling', problem: 'Problem' }[pay.state ?? 'paid'];
+        return [
+          ...s.release.captures.map((c) => ({ stage: `Stage ${s.index + 1}`, kind: 'Taken from donor', party: donorOf(c.donation), amount: Number(c.amount), status: 'Captured', ref: c.capture_id })),
+          { stage: `Stage ${s.index + 1}`, kind: 'Payout to worker', party: v.worker.name, amount: Number(pay.amount), status: state, ref: pay.batch_id },
+        ];
+      });
+      ledgerCard.hidden = rows.length === 0 || !(await renderLedgerGrid(ledgerHost, rows));
+    } finally { enhancing = false; }
   }
 
   function stageItem(v, s, total) {
@@ -134,13 +178,18 @@ async function projectPage(id) {
         others.length ? h('ul', { class: 'plain', style: 'margin-top:.6rem' }, others.map((x) => h('li', {}, submissionBadge(x.status), ' ', h('span', { class: 'small muted', text: `${x.id}: ${(x.reasons ?? []).map((r) => explain(r)).join(' ')}` })))) : null));
   }
 
-  function renderAudit(a) {
+  async function renderAudit(a) {
     const when = (ts) => (ts > 1e9 ? fmtDate(new Date(ts).toISOString()) : '');
+    const entries = [...a.entries].reverse();
+    const gridHost = h('div');
     clear(auditBody).append(
       h('div', { class: `notice ${a.chain.ok ? 'ok' : 'bad'}`, style: 'margin-top:.6rem', text: a.chain.ok ? `Chain verified: ${a.entries.length} entries, none altered.` : `Chain BROKEN at entry ${a.chain.brokenAt}.` }),
-      h('div', { class: 'scroll' }, h('table', { class: 'table compact' },
-        h('thead', {}, h('tr', {}, h('th', { text: '#' }), h('th', { text: 'What happened' }), h('th', { text: 'Hash' }))),
-        h('tbody', {}, [...a.entries].reverse().map((e) => h('tr', {}, h('td', { text: e.seq }), h('td', {}, h('div', { text: auditLine(e) }), h('div', { class: 'muted small', text: when(e.ts) })), h('td', { class: 'mono', text: e.hash.slice(0, 8) })))))));
+      gridHost);
+    const rows = entries.map((e) => ({ seq: e.seq, what: auditLine(e), when: when(e.ts), hash: e.hash.slice(0, 8) }));
+    if (await renderAuditGrid(gridHost, rows)) return;
+    gridHost.append(h('div', { class: 'scroll' }, h('table', { class: 'table compact' },
+      h('thead', {}, h('tr', {}, h('th', { text: '#' }), h('th', { text: 'What happened' }), h('th', { text: 'Hash' }))),
+      h('tbody', {}, entries.map((e) => h('tr', {}, h('td', { text: e.seq }), h('td', {}, h('div', { text: auditLine(e) }), h('div', { class: 'muted small', text: when(e.ts) })), h('td', { class: 'mono', text: e.hash.slice(0, 8) })))))));
   }
 
   await refresh();
