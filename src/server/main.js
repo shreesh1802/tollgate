@@ -54,6 +54,7 @@ const app = createApp({
   uploadsDir: path.join(dataDir, 'uploads'),
   staticDir: path.join(root, 'public'),
   vendor: {
+    '/vendor/fonts/': path.join(root, 'node_modules/@fontsource/atkinson-hyperlegible/files'), // OFL-licensed, self-hosted
     '/vendor/ag-grid/': path.join(root, 'node_modules/ag-grid-community/dist'),
     '/vendor/ag-charts/': path.join(root, 'node_modules/ag-charts-community/dist/umd'),
     '/vendor/bryntum/': path.join(root, 'node_modules/@bryntum/gantt'), // trial package: served from node_modules, never committed

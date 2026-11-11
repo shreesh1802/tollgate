@@ -275,6 +275,15 @@ then follow `spike/README.md` (authorize, partial captures, payout).
   all state changes for a project are serialised, content-security-policy and `nosniff` headers
   are set, and model-backed reviews are rate limited.
 
+## Accessibility
+
+- Every text and background color pair meets WCAG AA contrast (4.5:1 or better) in both the light and the
+  dark theme, which follows the system setting.
+- A "skip to main content" link, visible focus rings, controls at least 44 px tall, status shown in words as
+  well as color, and reduced motion respected (including the chart).
+- **Releasing a payment needs two clicks.** The verifier's approve button first asks for confirmation,
+  because a released payment cannot be undone.
+
 ## Known limits (please read)
 
 - **Reservations expire.** A PayPal authorization lasts at most 29 days (3 days guaranteed). The
@@ -332,6 +341,8 @@ results/         recorded evaluation outputs
   timeline, where each stage is chained by a dependency to the payment it unlocks. The trial
   bundle carries a watermark and is never committed to this repo, it is installed from npm.
   If it is not installed or fails to start, the page simply shows the plain stage list instead.
+- **Atkinson Hyperlegible** (SIL Open Font License, from the `@fontsource` package): the page font, designed
+  by the Braille Institute for legibility, and self-hosted (nothing is loaded from a third-party CDN).
 - **Anthropic Claude** (vision) as the two photo reviewers. The default model is `claude-haiku-5-5`.
 - **Postman**: a collection in [`postman/`](postman/) that runs the whole API end to end and replays the PayPal
   sandbox calls, with two ready-made environments (local and the hosted demo). It also runs headless with Newman.
@@ -340,7 +351,8 @@ results/         recorded evaluation outputs
   `jpeg-js` and `pngjs` (image decoding for the perceptual hash), plus the AG Grid and AG Charts
   community packages. The Bryntum trial package is about 50 MB; skip it with
   `npm install --omit=optional`.
-- Built with the help of Claude Code.
+- Built with the help of Claude Code. The design pass (accessibility, touch targets, confirmation of
+  irreversible actions) followed the open-source UI UX Pro Max design skill (MIT).
 
 ## License
 

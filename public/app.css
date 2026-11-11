@@ -1,3 +1,6 @@
+/* Atkinson Hyperlegible: designed by the Braille Institute for legibility. Self-hosted, with system fonts as the fallback. */
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 400; font-display: swap; src: url("/vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Atkinson Hyperlegible"; font-style: normal; font-weight: 700; font-display: swap; src: url("/vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2"); }
 :root {
   --bg: #f4f6f9; --card: #ffffff; --ink: #14202b; --muted: #556575; --line: #dfe5eb;
   --brand: #0b5cd5; --brand-ink: #ffffff; --brand-soft: #e6efff;
@@ -17,7 +20,7 @@
 }
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 a { color: var(--brand); }
 h1, h2, h3 { line-height: 1.2; margin: 0 0 .5rem; }
 h1 { font-size: clamp(1.5rem, 3vw, 2rem); }
@@ -34,7 +37,7 @@ p { margin: 0 0 .6rem; }
 .brand svg { width: 26px; height: 26px; }
 .brand small { font-weight: 500; color: var(--muted); font-size: .8rem; }
 nav { margin-left: auto; display: flex; gap: .25rem; flex-wrap: wrap; }
-nav a { padding: .4rem .8rem; border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: .92rem; }
+nav a { display: inline-flex; align-items: center; min-height: 44px; padding: .4rem .9rem; border-radius: 999px; text-decoration: none; color: var(--muted); font-weight: 600; font-size: .92rem; }
 nav a:hover { background: var(--brand-soft); color: var(--ink); }
 nav a.active { background: var(--brand-soft); color: var(--brand); }
 
@@ -69,13 +72,13 @@ main { max-width: 1060px; margin: 0 auto; padding: 20px 16px 64px; }
 .notice.bad { background: var(--bad-bg); color: var(--bad); }
 .notice.info { background: var(--info-bg); color: var(--info); }
 
-button, .btn { font: inherit; font-weight: 650; border: 1px solid transparent; border-radius: 10px; padding: .55rem 1rem; cursor: pointer; background: var(--brand); color: var(--brand-ink); text-decoration: none; display: inline-block; min-height: 42px; }
+button, .btn { font: inherit; font-weight: 650; border: 1px solid transparent; border-radius: 10px; padding: .55rem 1rem; cursor: pointer; background: var(--brand); color: var(--brand-ink); text-decoration: none; display: inline-block; min-height: 44px; }
 button:hover, .btn:hover { filter: brightness(1.06); }
 button.secondary { background: transparent; color: var(--ink); border-color: var(--line); }
 button.danger { background: var(--bad-bg); color: var(--bad); border-color: transparent; }
 button:disabled { opacity: .55; cursor: not-allowed; }
 label { display: block; font-weight: 600; font-size: .9rem; margin-bottom: .25rem; }
-input, select, textarea { font: inherit; width: 100%; padding: .55rem .7rem; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); min-height: 42px; }
+input, select, textarea { font: inherit; width: 100%; padding: .55rem .7rem; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); min-height: 44px; }
 input[type="checkbox"] { width: auto; min-height: 0; }
 input[type="file"] { padding: .45rem; }
 .field { margin-bottom: 12px; }
@@ -121,3 +124,15 @@ details > summary { cursor: pointer; font-weight: 650; padding: .4rem 0; }
 .link-list li { padding: .45rem 0; border-bottom: 1px solid var(--line); }
 ul.plain { margin: .3rem 0 0; padding-left: 1.1rem; }
 .empty { text-align: center; padding: 28px 12px; color: var(--muted); }
+
+/* Skip link: first thing a keyboard or screen-reader user reaches */
+.skip { position: absolute; left: 8px; top: -64px; z-index: 100; padding: .6rem 1rem; background: var(--brand); color: var(--brand-ink); border-radius: 10px; font-weight: 700; text-decoration: none; }
+.skip:focus { top: 8px; }
+.node svg { width: 18px; height: 18px; }
+/* Respect people who ask for less motion */
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Timeline bars: color follows meaning (the Status column says the same in words, so color is never the only cue) */
+.b-gantt .b-gantt-task.st-released { background-color: var(--ok) !important; }
+.b-gantt .b-gantt-task.st-active { background-color: var(--brand) !important; }
+.b-gantt .b-gantt-task.st-pending { background-color: transparent !important; border: 2px dashed var(--muted) !important; }

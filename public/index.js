@@ -1,4 +1,4 @@
-import { h, clear, api, qs, money, fmtDate, fmtDay, chrome, showError, stageBadge, submissionBadge, donationBadge, explain, payoutProblemText } from '/common.js';
+import { h, clear, api, qs, checkIcon, money, fmtDate, fmtDay, chrome, showError, stageBadge, submissionBadge, donationBadge, explain, payoutProblemText } from '/common.js';
 import { setVendors, renderGantt, renderLedgerGrid, renderAuditGrid, renderFundsChart } from '/vendor-ui.js';
 
 // Declared before the page code below runs (module code executes top to bottom).
@@ -197,7 +197,7 @@ async function projectPage(id) {
     const others = s.submissions.filter((x) => x.status !== 'RELEASED');
     const donorOf = (did) => v.donations.find((d) => d.id === did)?.donor ?? did;
     return h('li', {},
-      h('div', { class: `node ${nodeClass}`, 'aria-hidden': 'true', text: s.status === 'RELEASED' ? '✓' : s.index + 1 }),
+      h('div', { class: `node ${nodeClass}`, 'aria-hidden': 'true' }, s.status === 'RELEASED' ? checkIcon() : s.index + 1),
       h('div', { class: `stage ${s.status === 'ACTIVE' ? 'active' : ''}` },
         h('div', { class: 'row between' }, h('h3', { text: `Stage ${s.index + 1}: ${s.title}` }), stageBadge(s.status)),
         h('p', { text: `Must show: ${s.spec}` }),

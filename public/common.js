@@ -19,6 +19,18 @@ export function h(tag, props = {}, ...kids) {
 }
 
 export const clear = (el) => { el.replaceChildren(); return el; };
+
+/** A check mark drawn as SVG (not a text glyph), for completed steps. Decorative: the badge beside it says "Released". */
+export function checkIcon() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS(ns, 'path');
+  for (const [k, v] of Object.entries({ d: 'M5 12.5l4.5 4.5L19 7.5', fill: 'none', stroke: 'currentColor', 'stroke-width': '3', 'stroke-linecap': 'round', 'stroke-linejoin': 'round' })) path.setAttribute(k, v);
+  svg.append(path);
+  return svg;
+}
 export const qs = () => new URLSearchParams(location.search);
 
 export async function api(method, url, { body, headers = {}, raw = false } = {}) {

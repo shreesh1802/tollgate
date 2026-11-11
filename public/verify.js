@@ -45,8 +45,25 @@ async function card(it) {
     } catch (e) { showError(done, e); for (const b of buttons) b.disabled = false; }
   };
   const failed = it.submission.status === 'RELEASE_FAILED';
-  const approve = h('button', { type: 'button', text: failed ? 'Retry the release' : 'Approve and release payment', onclick: decide('approve') });
-  const reject = h('button', { type: 'button', class: 'danger', text: 'Reject', onclick: decide('reject') });
+  const label = failed ? 'Retry the release' : 'Approve and release payment';
+
+  // Releasing a payment cannot be undone, so the first click only arms the button and a second click
+  // confirms. It disarms itself after a few seconds, or if the verifier chooses Reject instead.
+  let armTimer = null;
+  function disarm() {
+    clearTimeout(armTimer);
+    approve.dataset.armed = '';
+    approve.textContent = label;
+    clear(done);
+  }
+  function arm() {
+    approve.dataset.armed = '1';
+    approve.textContent = 'Confirm: pay the worker now';
+    clear(done).append(h('div', { class: 'notice warn', role: 'status', text: 'This releases the stage payment for exactly this evidence and cannot be undone. Press the button again to confirm.' }));
+    armTimer = setTimeout(disarm, 8000);
+  }
+  const approve = h('button', { type: 'button', text: label, onclick: () => { if (approve.dataset.armed === '1') { clearTimeout(armTimer); decide('approve')(); } else arm(); } });
+  const reject = h('button', { type: 'button', class: 'danger', text: 'Reject', onclick: () => { disarm(); decide('reject')(); } });
   const buttons = [approve, reject];
   const f = it.submission.facts ?? {};
 

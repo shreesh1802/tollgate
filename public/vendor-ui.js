@@ -114,6 +114,7 @@ export async function renderFundsChart(host, stages) {
     data,
     theme: isDark() ? 'ag-default-dark' : 'ag-default',
     background: { fill: 'transparent' },
+    animation: { enabled: !window.matchMedia('(prefers-reduced-motion: reduce)').matches },
     title: { text: 'Funds by stage (USD)' },
     height: 260,
     series: [
