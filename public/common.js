@@ -20,6 +20,25 @@ export function h(tag, props = {}, ...kids) {
 
 export const clear = (el) => { el.replaceChildren(); return el; };
 
+const ICONS = {
+  lock: [['rect', { x: 5, y: 11, width: 14, height: 9, rx: 2 }], ['path', { d: 'M8 11V8a4 4 0 0 1 8 0v3' }]],
+  camera: [['path', { d: 'M4 8h3l1.5-2.5h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z' }], ['circle', { cx: 12, cy: 13, r: 3.5 }]],
+  send: [['path', { d: 'M4 12h14' }], ['path', { d: 'M13 6l6 6-6 6' }]],
+};
+
+/** A decorative stroke icon ('lock', 'camera' or 'send'). aria-hidden: the visible text carries the meaning. */
+export function icon(name) {
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg');
+  for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true' })) svg.setAttribute(k, v);
+  for (const [tag, attrs] of ICONS[name]) {
+    const el = document.createElementNS(ns, tag);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    svg.append(el);
+  }
+  return svg;
+}
+
 /** A check mark drawn as SVG (not a text glyph), for completed steps. Decorative: the badge beside it says "Released". */
 export function checkIcon() {
   const ns = 'http://www.w3.org/2000/svg';

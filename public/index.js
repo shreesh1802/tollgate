@@ -1,4 +1,4 @@
-import { h, clear, api, qs, checkIcon, money, fmtDate, fmtDay, chrome, showError, stageBadge, submissionBadge, donationBadge, explain, payoutProblemText } from '/common.js';
+import { h, clear, api, qs, checkIcon, icon, money, fmtDate, fmtDay, chrome, showError, stageBadge, submissionBadge, donationBadge, explain, payoutProblemText } from '/common.js';
 import { setVendors, renderGantt, renderLedgerGrid, renderAuditGrid, renderFundsChart } from '/vendor-ui.js';
 
 // Declared before the page code below runs (module code executes top to bottom).
@@ -18,11 +18,7 @@ await (pid ? projectPage(pid) : listPage());
 
 async function listPage() {
   clear(app);
-  app.append(
-    h('section', { class: 'hero' },
-      h('h1', { text: 'Pay for the work after it is proven.' }),
-      h('p', { class: 'pitch', text: 'Neighbours pool money to fix what is broken. Every donation is reserved on PayPal and released in stages, only when photo evidence passes checks that an AI opinion alone can never override.' })),
-  );
+  app.append(heroSection(), proofStrip(), howItWorks());
   if (cfg.demo) app.append(demoGuide(cfg));
   let projects;
   try { projects = await api('GET', '/api/projects'); } catch (e) { return showError(app, e); }
@@ -30,7 +26,7 @@ async function listPage() {
     app.append(h('div', { class: 'card empty' }, h('p', { text: 'No projects yet.' }), h('a', { class: 'btn', href: '/create.html', text: 'Create the first project' })));
     return;
   }
-  app.append(h('div', { class: 'grid cols-2' }, projects.map((p) => {
+  app.append(h('h2', { id: 'projects', style: 'margin:8px 0 12px;scroll-margin-top:16px', text: 'Projects' }), h('div', { class: 'grid cols-2' }, projects.map((p) => {
     const done = p.stages.filter((s) => s === 'RELEASED').length;
     return h('a', { class: 'card', href: `/?project=${encodeURIComponent(p.id)}`, style: 'text-decoration:none;color:inherit;display:block' },
       h('h2', { text: p.title }),
@@ -40,11 +36,50 @@ async function listPage() {
   })));
 }
 
+// Trust & Authority page order: what it is, proof it works, how it works, then the way in.
+function heroSection() {
+  return h('section', { class: 'hero hero-grid', 'aria-labelledby': 'hero-title' },
+    h('div', {},
+      h('p', { class: 'eyebrow', text: 'Escrow for community projects' }),
+      h('h1', { id: 'hero-title', text: 'Pay for the work after it is proven.' }),
+      h('p', { class: 'pitch', text: 'Neighbours pool money to fix what is broken. Every donation is reserved on PayPal and released one stage at a time, only when photo evidence passes checks that an AI opinion alone can never override.' }),
+      h('div', { class: 'row cta-row' },
+        h('a', { class: 'btn', href: cfg.demo ? '#try' : '#projects', text: cfg.demo ? 'Try the live demo' : 'See the projects' }),
+        h('a', { class: 'btn secondary', href: '#how', text: 'How it works' }))),
+    h('figure', { class: 'before-after', style: 'margin:0' },
+      h('div', { class: 'filmstrip' }, SAMPLES.map((p, i) => h('div', {},
+        h('img', { src: `/samples/${p.file}`, alt: ['The old, rusty hand pump before any work', 'The new green pump installed', 'Water flowing from the new pump into a bucket'][i], loading: 'eager' }),
+        h('span', { class: 'badge muted', text: ['Before', 'Installed', 'Flowing'][i] })))),
+      h('figcaption', { class: 'muted small', text: 'One project, three stages. Money moves only as each stage is proven.' })));
+}
+
+/** Only facts we measured, each with where it comes from. */
+function proofStrip() {
+  const item = (value, label, note) => h('div', { class: 'stat' }, h('div', { class: 'v', text: value }), h('div', { class: 'l' }, h('strong', { text: label }), h('br'), note));
+  return h('section', { class: 'proof grid cols-3', 'aria-label': 'Verified results' },
+    item('$10.00 \u2192 $10.00', 'Reserved, then paid out', 'A live PayPal sandbox run, confirmed by PayPal itself.'),
+    item('96', 'Automated tests', 'Including fraud, crash, retry and prompt-injection cases.'),
+    item('8 of 8', 'Test photos handled right', 'Honest and fake, judged by real Claude reviewers.'));
+}
+
+function howItWorks() {
+  const step = (name, n, title, body) => h('li', { class: 'card step' },
+    h('div', { class: 'step-icon' }, icon(name)),
+    h('h3', {}, h('span', { class: 'muted', text: `${n}. ` }), title),
+    h('p', { class: 'muted', text: body }));
+  return h('section', { id: 'how', style: 'margin:24px 0;scroll-margin-top:16px', 'aria-labelledby': 'how-title' },
+    h('h2', { id: 'how-title', text: 'How it works' }),
+    h('ol', { class: 'steps' },
+      step('lock', 1, 'Reserve', 'Donors approve a PayPal authorization. The money stays in their account; nothing is taken yet.'),
+      step('camera', 2, 'Prove', 'For each stage the worker photographs the work with a one-time code. Two AI reviewers and plain-code checks examine it.'),
+      step('send', 3, 'Release', "Code decides, not the AI. Each donor's exact share is captured and the worker is paid. Every step is in an audit log.")));
+}
+
 /** Demo mode only: everything a visitor needs to try all three roles, without any server log. */
 function demoGuide(cfg) {
   const d = cfg.demo;
   const step = (_n, title, body) => h('li', { style: 'margin-bottom:.6rem' }, h('strong', { text: `${title} ` }), body);
-  return h('section', { class: 'card', style: 'margin-bottom:16px', 'aria-labelledby': 'tryit' },
+  return h('section', { id: 'try', class: 'card', style: 'margin-bottom:16px;scroll-margin-top:16px', 'aria-labelledby': 'tryit' },
     h('div', { class: 'row between' }, h('h2', { id: 'tryit', text: 'Try it in two minutes' }), h('span', { class: 'badge warn', text: 'Demo mode: test money only' })),
     h('p', { class: 'muted small', text: cfg.simulatedReviews
       ? 'Payments and photo reviews are simulated in this run. Everything after the reviewers (checks, release gate, splitting, audit log) is the real code.'
