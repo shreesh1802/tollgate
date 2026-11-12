@@ -348,6 +348,7 @@ results/         recorded evaluation outputs
 - **Postman**: a collection in [`postman/`](postman/) that runs the whole API end to end and replays the PayPal
   sandbox calls, with two ready-made environments (local and the hosted demo). It also runs headless with Newman.
 - **Slack** (optional): an incoming webhook that tells the verifier when a case is held.
+- **Zapier** (optional): the same notification webhook can post to a Zapier Catch Hook, which receives the full JSON (project, stage, reasons, verifier link; never keys, emails or images), so a Zap can alert the verifier through any app when a case is held or a payment fails.
 - **Node.js**, with four runtime dependencies: `@anthropic-ai/sdk`, `exifr` (EXIF reading),
   `jpeg-js` and `pngjs` (image decoding for the perceptual hash), plus the AG Grid and AG Charts
   community packages. The Bryntum trial package is about 50 MB; skip it with
